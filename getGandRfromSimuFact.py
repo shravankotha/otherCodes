@@ -1,6 +1,12 @@
 import sys
+import statistics as stats
+import random as rand
+import time
+from mpl_toolkits import mplot3d
+import matplotlib.pyplot as plt
 
 def main():
+    nSamples=5
     nArguments=len(sys.argv)
     if nArguments != 4:
         print('Error: Three command line arguments are expected -- (1) unv file name including path (2) liquidus temperature in Kelvin (3) Temperature units (C or K)')
@@ -15,27 +21,119 @@ def main():
                                                        listTemperatures, \
                                                        unitsTemperature, \
                                                        temperatureLiquidus)
-    print(listElementsWithInterface)
+    
+    listTemperaturesPointsOnInterface=[]
+    listCoordinatesPointsOnInterface=[] 
+    for iDimension in range(0,3):
+        listCoordinatesPointsOnInterface.append([])
+    timeStart=time.time()
+    for iElement in range(0,500): #len(listElementsWithInterface)):
+        print("Processing element: ",iElement," of ",str(len(listElementsWithInterface))," -- total time : ",str(time.time()-timeStart))
+        listNodesConnectedElement= listConnectivity[listElementsWithInterface[iElement]-1]
+        listTemperaturesElement = [listTemperatures[iNode-1] for iNode in listNodesConnectedElement]
+        listCoordinatesNodalElement=[]
+        for iDimension in range(0,3):
+            listCoordinatesNodalElement.append([])  
+            for iNode in range(0,len(listNodesConnectedElement)):
+                if iDimension == 0:
+                    listCoordinatesNodalElement[iDimension].append(listCoordinatesX[listNodesConnectedElement[iNode]-1])
+                elif iDimension == 1:
+                    listCoordinatesNodalElement[iDimension].append(listCoordinatesY[listNodesConnectedElement[iNode]-1])
+                elif iDimension == 2:
+                    listCoordinatesNodalElement[iDimension].append(listCoordinatesZ[listNodesConnectedElement[iNode]-1])
+        
+        coordinatesNodesNewWithInterface, temperatureNodesNewWithInterface = findInterfacesSolidLiquidInAnElement(listNodesConnectedElement,listTemperaturesElement,listCoordinatesNodalElement,temperatureLiquidus)
+        
+        #  evaluate the centroid of each cube, temperature at the centroid and gradient at the centroid
+        #listTemperaturesPointsOnInterface.append([])
+        #listCoordinatesPointsOnInterface.append([])
+        listCubeIDs = rand.sample(range(len(coordinatesNodesNewWithInterface)),min([len(coordinatesNodesNewWithInterface),nSamples]))
+        for iCube in range(0,len(listCubeIDs)):
+            idCube = listCubeIDs[iCube]
+            #listCoordinatesPointsOnInterface[iElement].append([])
+            listTemperaturesCubeCorners=[]
+            listCartesianCoordinates=[]
+            for iDimension in range(0,3):
+                listCartesianCoordinates.append([])
+            for iNode in range(0,len(coordinatesNodesNewWithInterface[0][0])):
+                coordinatesNatural=[]
+                for iDimension in range(0,3):
+                    coordinatesNatural.append(coordinatesNodesNewWithInterface[idCube][iDimension][iNode])
+                listTemperaturesCubeCorners.append(getQuantityInsideTheElement(listTemperaturesElement,coordinatesNatural))
+                for iDimension in range(0,3):
+                    listCartesianCoordinates[iDimension].append(getQuantityInsideTheElement(listCoordinatesNodalElement[iDimension],coordinatesNatural))
+        
+            listTemperaturesPointsOnInterface.append(stats.mean(listTemperaturesCubeCorners))
+            for iDimension in range(0,3):
+                listCoordinatesPointsOnInterface[iDimension].append(stats.mean(listCartesianCoordinates[iDimension]))
+    
+    fig = plt.figure()
+    ax = plt.axes(projection='3d')
+    #
+    ## Data for a three-dimensional line
+    #zline = np.linspace(0, 15, 1000)
+    #xline = np.sin(zline)
+    #yline = np.cos(zline)
+    #ax.plot3D(xline, yline, zline, 'gray')
+    #
+    ## Data for three-dimensional scattered points
+    #zdata = 15 * np.random.random(100)
+    #xdata = np.sin(zdata) + 0.1 * np.random.randn(100)
+    #ydata = np.cos(zdata) + 0.1 * np.random.randn(100)
+    ax.scatter3D(listCoordinatesPointsOnInterface[0], listCoordinatesPointsOnInterface[1], listCoordinatesPointsOnInterface[2], color='red');
+    plt.show()
+    
+    print('Finished')
     
 
-def findInterfacesSolidLiquidInAnElement(listNodesConnectedElement,listTemperaturesElement,listCoordinatesNodalElement):
+    
+
+def findInterfacesSolidLiquidInAnElement(listNodesConnectedElement,listTemperaturesElement,listCoordinatesNodalElement,temperatureLiquidus):
     listXi,listEta,listZeta=coordsNaturalElementHex()
-    nDivisions=4
+    coordinatesNodesOld=[]
+    coordinatesNodesOld.append([listXi,listEta,listZeta])
+    nDivisions=6
     for iDivision in range(0,nDivisions):
-        list
-        for iCube in range(0,listCubes)
-    
+        coordinatesNodesNewWithInterface = []
+        temperatureNodesNewWithInterface = []
+        for iCube in range(0,len(coordinatesNodesOld)):
+            coordinatesNodesNew, coordinatesNewElementsHex = partitionCube(coordinatesNodesOld[iCube])
+            for iCubeNew in range(0,len(coordinatesNewElementsHex)):
+                coordinatesNodeElemental = coordinatesNewElementsHex[iCubeNew]
+                isFoundNodeWithLowerThanLiquidus = "false"
+                isFoundNodeWithHigherThanLiquidus = "false"
+                listTemperatures=[]
+                for iNode in range(0,len(coordinatesNodeElemental[0])):
+                    coordinatesNatural = [coordinatesNodeElemental[0][iNode],coordinatesNodeElemental[1][iNode],coordinatesNodeElemental[2][iNode]]
+                    listTemperatures.append(getQuantityInsideTheElement(listTemperaturesElement,coordinatesNatural))
+                    if listTemperatures[iNode] < temperatureLiquidus:
+                        isFoundNodeWithLowerThanLiquidus = "true"
+                    elif listTemperatures[iNode] >= temperatureLiquidus:
+                        isFoundNodeWithHigherThanLiquidus = "true"
+                    
+                if isFoundNodeWithLowerThanLiquidus == "true" and isFoundNodeWithHigherThanLiquidus == "true":
+                    coordinatesNodesNewWithInterface.append(coordinatesNodeElemental)
+                    temperatureNodesNewWithInterface.append(listTemperatures)
+        coordinatesNodesOld = coordinatesNodesNewWithInterface      
 
-def 
+    return coordinatesNodesNewWithInterface, temperatureNodesNewWithInterface
     
+def getQuantityInsideTheElement(quantitiesNodal,coordinatesNatural):
+    shapeFunctions=evaluateShapeFunctions(coordinatesNatural)
+    quantity = 0
+    for iNode in range(0,len(quantitiesNodal)):
+        quantity = quantity + shapeFunctions[iNode]*quantitiesNodal[iNode]
+        
+    return quantity
     
 def evaluateShapeFunctions(coordinatesNatural):
     listXi,listEta,listZeta=coordsNaturalElementHex()
     xi=coordinatesNatural[0]
     eta=coordinatesNatural[1]
     zeta=coordinatesNatural[2]
+    shapeFunctions=[]
     for iNode in range(0,8):
-        shapeFunctions[iNode]=(1/8)*(1+listXi[iNode]*xi)*(1+listEta[iNode]*eta)*(1+listZeta[iNode]*zeta)
+        shapeFunctions.append((1/8)*(1+listXi[iNode]*xi)*(1+listEta[iNode]*eta)*(1+listZeta[iNode]*zeta))
         
     return shapeFunctions    
         
@@ -74,55 +172,114 @@ def partitionCube(coordinatesNodesOld):
             coordinatesNewElementsHex[iCube].append([])
         
     for iDimension in range(0,3):
-        coordinatesNewElementsHex[0][iDimension].append([coordinatesNodesOld[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0]])
-        coordinatesNewElementsHex[1][iDimension].append([coordinatesNodesNew[iDimension][0],coordinatesNodesOld[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0]])
-        coordinatesNewElementsHex[2][iDimension].append([coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesOld[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0]])
-        coordinatesNewElementsHex[3][iDimension].append([coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesOld[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0]])
-        coordinatesNewElementsHex[4][iDimension].append([coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesOld[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0]])
-        coordinatesNewElementsHex[5][iDimension].append([coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesOld[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0]])
-        coordinatesNewElementsHex[6][iDimension].append([coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesOld[iDimension][0],coordinatesNodesNew[iDimension][0]])
-        coordinatesNewElementsHex[7][iDimension].append([coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesNew[iDimension][0],coordinatesNodesOld[iDimension][0]])
+        coordinatesNewElementsHex[0][iDimension].append(coordinatesNodesOld[iDimension][0])
+        coordinatesNewElementsHex[0][iDimension].append(coordinatesNodesNew[iDimension][0])
+        coordinatesNewElementsHex[0][iDimension].append(coordinatesNodesNew[iDimension][12])
+        coordinatesNewElementsHex[0][iDimension].append(coordinatesNodesNew[iDimension][3])
+        coordinatesNewElementsHex[0][iDimension].append(coordinatesNodesNew[iDimension][11])
+        coordinatesNewElementsHex[0][iDimension].append(coordinatesNodesNew[iDimension][14])
+        coordinatesNewElementsHex[0][iDimension].append(coordinatesNodesNew[iDimension][18])
+        coordinatesNewElementsHex[0][iDimension].append(coordinatesNodesNew[iDimension][16])
+        coordinatesNewElementsHex[1][iDimension].append(coordinatesNodesNew[iDimension][0])
+        coordinatesNewElementsHex[1][iDimension].append(coordinatesNodesOld[iDimension][1])
+        coordinatesNewElementsHex[1][iDimension].append(coordinatesNodesNew[iDimension][1])
+        coordinatesNewElementsHex[1][iDimension].append(coordinatesNodesNew[iDimension][12])
+        coordinatesNewElementsHex[1][iDimension].append(coordinatesNodesNew[iDimension][14])
+        coordinatesNewElementsHex[1][iDimension].append(coordinatesNodesNew[iDimension][8])
+        coordinatesNewElementsHex[1][iDimension].append(coordinatesNodesNew[iDimension][17])
+        coordinatesNewElementsHex[1][iDimension].append(coordinatesNodesNew[iDimension][18])
+        coordinatesNewElementsHex[2][iDimension].append(coordinatesNodesNew[iDimension][12])
+        coordinatesNewElementsHex[2][iDimension].append(coordinatesNodesNew[iDimension][1])
+        coordinatesNewElementsHex[2][iDimension].append(coordinatesNodesOld[iDimension][2])
+        coordinatesNewElementsHex[2][iDimension].append(coordinatesNodesNew[iDimension][2])
+        coordinatesNewElementsHex[2][iDimension].append(coordinatesNodesNew[iDimension][18])
+        coordinatesNewElementsHex[2][iDimension].append(coordinatesNodesNew[iDimension][17])
+        coordinatesNewElementsHex[2][iDimension].append(coordinatesNodesNew[iDimension][9])
+        coordinatesNewElementsHex[2][iDimension].append(coordinatesNodesNew[iDimension][15])
+        coordinatesNewElementsHex[3][iDimension].append(coordinatesNodesNew[iDimension][3])
+        coordinatesNewElementsHex[3][iDimension].append(coordinatesNodesNew[iDimension][3])
+        coordinatesNewElementsHex[3][iDimension].append(coordinatesNodesNew[iDimension][2])
+        coordinatesNewElementsHex[3][iDimension].append(coordinatesNodesOld[iDimension][3])
+        coordinatesNewElementsHex[3][iDimension].append(coordinatesNodesNew[iDimension][16])
+        coordinatesNewElementsHex[3][iDimension].append(coordinatesNodesNew[iDimension][18])
+        coordinatesNewElementsHex[3][iDimension].append(coordinatesNodesNew[iDimension][15])
+        coordinatesNewElementsHex[3][iDimension].append(coordinatesNodesNew[iDimension][10])
+        coordinatesNewElementsHex[4][iDimension].append(coordinatesNodesNew[iDimension][11])
+        coordinatesNewElementsHex[4][iDimension].append(coordinatesNodesNew[iDimension][14])
+        coordinatesNewElementsHex[4][iDimension].append(coordinatesNodesNew[iDimension][18])
+        coordinatesNewElementsHex[4][iDimension].append(coordinatesNodesNew[iDimension][16])
+        coordinatesNewElementsHex[4][iDimension].append(coordinatesNodesOld[iDimension][4])
+        coordinatesNewElementsHex[4][iDimension].append(coordinatesNodesNew[iDimension][4])
+        coordinatesNewElementsHex[4][iDimension].append(coordinatesNodesNew[iDimension][13])
+        coordinatesNewElementsHex[4][iDimension].append(coordinatesNodesNew[iDimension][7])
+        coordinatesNewElementsHex[5][iDimension].append(coordinatesNodesNew[iDimension][14])
+        coordinatesNewElementsHex[5][iDimension].append(coordinatesNodesNew[iDimension][8])
+        coordinatesNewElementsHex[5][iDimension].append(coordinatesNodesNew[iDimension][17])
+        coordinatesNewElementsHex[5][iDimension].append(coordinatesNodesNew[iDimension][18])
+        coordinatesNewElementsHex[5][iDimension].append(coordinatesNodesNew[iDimension][4])
+        coordinatesNewElementsHex[5][iDimension].append(coordinatesNodesOld[iDimension][5])
+        coordinatesNewElementsHex[5][iDimension].append(coordinatesNodesNew[iDimension][5])
+        coordinatesNewElementsHex[5][iDimension].append(coordinatesNodesNew[iDimension][13])
+        coordinatesNewElementsHex[6][iDimension].append(coordinatesNodesNew[iDimension][18])
+        coordinatesNewElementsHex[6][iDimension].append(coordinatesNodesNew[iDimension][17])
+        coordinatesNewElementsHex[6][iDimension].append(coordinatesNodesNew[iDimension][9])
+        coordinatesNewElementsHex[6][iDimension].append(coordinatesNodesNew[iDimension][15])
+        coordinatesNewElementsHex[6][iDimension].append(coordinatesNodesNew[iDimension][13])
+        coordinatesNewElementsHex[6][iDimension].append(coordinatesNodesNew[iDimension][5])
+        coordinatesNewElementsHex[6][iDimension].append(coordinatesNodesOld[iDimension][6])
+        coordinatesNewElementsHex[6][iDimension].append(coordinatesNodesNew[iDimension][6])
+        coordinatesNewElementsHex[7][iDimension].append(coordinatesNodesNew[iDimension][16])
+        coordinatesNewElementsHex[7][iDimension].append(coordinatesNodesNew[iDimension][18])
+        coordinatesNewElementsHex[7][iDimension].append(coordinatesNodesNew[iDimension][15])
+        coordinatesNewElementsHex[7][iDimension].append(coordinatesNodesNew[iDimension][10])
+        coordinatesNewElementsHex[7][iDimension].append(coordinatesNodesNew[iDimension][7])
+        coordinatesNewElementsHex[7][iDimension].append(coordinatesNodesNew[iDimension][13])
+        coordinatesNewElementsHex[7][iDimension].append(coordinatesNodesNew[iDimension][6])
+        coordinatesNewElementsHex[7][iDimension].append(coordinatesNodesOld[iDimension][7])
     
     return coordinatesNodesNew, coordinatesNewElementsHex
     
 def dShapeFunction_dNaturalCoords():
     listXi,listEta,listZeta=coordsNaturalElementHex()
+    dN_dXi=[]
+    dN_dEta=[]
+    dN_dZeta=[]
     for iNode in range(0,8):        
-        dN_dXi[iNode] = (1/8)*listXi[iNode]*(1+listEta[iNode]*eta)*(1+listZeta[iNode]*zeta)
-        dN_dEta[iNode] = (1/8)*(1+listXi[iNode]*xi)*listEta[iNode]*(1+listZeta[iNode]*zeta)
-        dN_dZeta[iNode] = (1/8)*(1+listXi[iNode]*xi)*(1+listEta[iNode]*eta)*listZeta[iNode]
+        dN_dXi.append((1/8)*listXi[iNode]*(1+listEta[iNode]*eta)*(1+listZeta[iNode]*zeta))
+        dN_dEta.append((1/8)*(1+listXi[iNode]*xi)*listEta[iNode]*(1+listZeta[iNode]*zeta))
+        dN_dZeta.append((1/8)*(1+listXi[iNode]*xi)*(1+listEta[iNode]*eta)*listZeta[iNode])
                
 def coordsNaturalElementHex():
     listXi=[]
     listEta=[]
     listZeta=[]
     
-    listXi[0] = -1
-    listXi[1] = +1
-    listXi[2] = +1
-    listXi[3] = -1
-    listXi[4] = -1
-    listXi[5] = +1
-    listXi[6] = +1
-    listXi[7] = -1
+    listXi.append(-1)
+    listXi.append(+1)
+    listXi.append(+1)
+    listXi.append(-1)
+    listXi.append(-1)
+    listXi.append(+1)
+    listXi.append(+1)
+    listXi.append(-1)
     
-    listEta[0] = -1
-    listEta[1] = -1
-    listEta[2] = +1
-    listEta[3] = +1
-    listEta[4] = -1
-    listEta[5] = -1
-    listEta[6] = +1
-    listEta[7] = +1    
+    listEta.append(-1)
+    listEta.append(-1)
+    listEta.append(+1)
+    listEta.append(+1)
+    listEta.append(-1)
+    listEta.append(-1)
+    listEta.append(+1)
+    listEta.append(+1)    
     
-    listZeta[0] = -1
-    listZeta[1] = -1
-    listZeta[2] = -1
-    listZeta[3] = -1
-    listZeta[4] = +1
-    listZeta[5] = +1
-    listZeta[6] = +1
-    listZeta[7] = +1
+    listZeta.append(-1)
+    listZeta.append(-1)
+    listZeta.append(-1)
+    listZeta.append(-1)
+    listZeta.append(+1)
+    listZeta.append(+1)
+    listZeta.append(+1)
+    listZeta.append(+1)
     
     return listXi, listEta, listZeta
 
@@ -139,17 +296,18 @@ def findInterfaceSolidLiquid(listConnectivity, \
         isFoundNodeWithHigherThanLiquidus="false"
         for iNode in range(0,len(listConnectedNodes)):
             idNode=listConnectedNodes[iNode]-1
-            if listTemperatures[idNode] < temperatureLiquidus:
+            temperature=listTemperatures[idNode]
+            if temperature < temperatureLiquidus:
                 isFoundNodeWithLowerThanLiquidus="true"
                 idNodeWithLowerThanLiquidus=idNode
-            elif listTemperatures[idNode] >= temperatureLiquidus:
+            elif temperature >= temperatureLiquidus:
                 isFoundNodeWithHigherThanLiquidus="true"
                 idNodeWithHigherThanLiquidus=idNode
             else:
                 raise ValueError("Error: Something wrong with the temperature value")
                 
             if isFoundNodeWithLowerThanLiquidus == "true" and isFoundNodeWithHigherThanLiquidus == "true":
-                listElementsWithInterface.append(iElement)
+                listElementsWithInterface.append(iElement+1)
                 break
                 
     return listElementsWithInterface
