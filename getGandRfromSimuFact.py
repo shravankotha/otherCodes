@@ -16,10 +16,10 @@ def main():
     timeStart=time.time()
     nArguments=len(sys.argv)
     if nArguments != 6:
-        print('Error: Five command line arguments are expected -- (1) unv file name including path      \
-                                                                  (2) liquidus temperature in Kelvin    \
-                                                                  (3) Temperature units (C or K)        \
-                                                                  (4) Laser direction (X or Y or Z)     \
+        print('Error: Five command line arguments are expected -- (1) unv file name including path \
+                                                                  (2) liquidus temperature in Kelvin \
+                                                                  (3) Temperature units (C or K) \
+                                                                  (4) Laser direction (X or Y or Z) \
                                                                   (5) Laser speed')
         return
     nameFile = sys.argv[1]
