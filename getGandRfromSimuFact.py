@@ -111,13 +111,14 @@ def main():
     listIndices=np.argsort(np.array(listMagnitudeGradient))
     pathDir=os.path.splitdrive(nameFile)[0] + os.path.split(os.path.splitdrive(nameFile)[1])[0] + "/"
     
-    out_path = pathDir + 'coords_G_R_coolingRate.out'
+    out_path = pathDir + 'coords_Temp_G_R_coolingRate.out'
     with open(out_path,'w') as file_out:
-        file_out.write("coordsX     coordsY     coordsZ     thermalGradX        thermalGradY        thermalGradZ        thermalGradMagnitude        growthRate      coolingRate \n")
+        file_out.write("coordsX     coordsY     coordsZ     Temp        thermalGradX        thermalGradY        thermalGradZ        thermalGradMagnitude        growthRate      coolingRate \n")
         for ii in range(0,len(listIndices)):
-            file_out.write("{0:25.10f}{1:25.10f}{2:25.10f}{3:25.10f}{4:25.10f}{5:25.10f}{6:25.10f}{7:25.10f}{8:25.10f}\n".format(listCoordinatesCartesianPointsOnInterface[0][listIndices[ii]], 
+            file_out.write("{0:25.10f}{1:25.10f}{2:25.10f}{3:25.10f}{4:25.10f}{5:25.10f}{6:25.10f}{7:25.10f}{8:25.10f}{9:25.10f}\n".format(listCoordinatesCartesianPointsOnInterface[0][listIndices[ii]], 
                                                                                          listCoordinatesCartesianPointsOnInterface[1][listIndices[ii]],
                                                                                          listCoordinatesCartesianPointsOnInterface[2][listIndices[ii]],
+                                                                                         listTemperaturesPointsOnInterface[listIndices[ii]],
                                                                                          listVectorGradient[0][listIndices[ii]],
                                                                                          listVectorGradient[1][listIndices[ii]],
                                                                                          listVectorGradient[2][listIndices[ii]],
