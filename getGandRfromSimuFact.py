@@ -14,17 +14,26 @@ from scipy.spatial import ConvexHull, convex_hull_plot_2d
 
 def main():
 
+    methodInterpolation = 'linear'
+    
+    nPoints = 50
+    
+    offsetTol = 0.005
+    
+    tolerance = 1E-6   
+    
     timeStart = time.time()
     
     nArguments = len(sys.argv)
     
-    if nArguments != 6:
+    if nArguments != 7:
     
-        print('Error: Five command line arguments are expected -- (1) unv file name including path \
-                                                                  (2) liquidus temperature in Kelvin \
-                                                                  (3) Temperature units (C or K) \
-                                                                  (4) Laser direction (X or Y or Z) \
-                                                                  (5) Laser speed')
+        print('Error: Five command line arguments are expected -- (1) unv file name including path      \
+                                                                  (2) liquidus temperature in Kelvin    \
+                                                                  (3) Temperature units (C or K)        \
+                                                                  (4) Laser direction (X or Y or Z)     \
+                                                                  (5) Laser speed                       \
+                                                                  (6) Melt pool normal direction')
                                                                   
         return
         
@@ -38,23 +47,15 @@ def main():
     
     speedLaser = float(sys.argv[5])
     
-    if directionScanning == "X":
+    directionMeltPoolNormal = sys.argv[6]
     
-        iDimensionScanning = 0
-        
-    elif directionScanning == "Y":
+    iDimensionScanning = {"X":0, "Y":1, "Z":2}
     
-        iDimensionScanning = 1
-        
-    elif directionScanning == "Z":
-    
-        iDimensionScanning = 2
-    
-    # Parse the unv file and obtain mesh information
+    # -------------------------------------- Parse the unv file and obtain mesh information
     
     listNodes, listCoordinatesX, listCoordinatesY, listCoordinatesZ, listConnectivity, listTemperatures = parseUnvFile(nameFile)
     
-    # Find the solid-liquid interface
+    # -------------------------------------- Find the solid-liquid interface
     
     listElementsWithInterface = findInterfaceSolidLiquid(listConnectivity,
                                                          listTemperatures,
@@ -72,7 +73,7 @@ def main():
         
         listVectorGradient.append([])
     
-    # Loop over all the interface elements and compute the interface points, thermal gradient, growth rate and cooling rate
+    # -------------------------------------- Loop over all the interface elements and compute the interface points, thermal gradient, growth rate and cooling rate
     
     for iElement in range(0, len(listElementsWithInterface), 1):
     
@@ -107,7 +108,7 @@ def main():
                                                                                                                   listCoordinatesNodalElement,
                                                                                                                   temperatureLiquidus)
         
-        #  evaluate the centroid of each cube, temperature at the centroid and gradient at the centroid
+        # -------------------------------------- evaluate the centroid of each cube, temperature at the centroid and gradient at the centroid
         
         for iCube in range(0, len(coordinatesNodesNewWithInterface)):
         
@@ -145,7 +146,7 @@ def main():
                 
                 listCoordinatesNaturalPointsOnInterface[iDimension].append(coordinatesNaturalCentroid[iDimension])
                 
-            # Compute the gradient, growth rate
+            # -------------------------------------- Compute the gradient, growth rate
             
             dN_dxyz = dShapeFunction_dCaterianCoords(listCoordinatesNodalElement, coordinatesNaturalCentroid)
             
@@ -165,11 +166,11 @@ def main():
                 
             listMagnitudeGradient.append(math.sqrt(magnitude))
             
-            listGrowthRate.append(speedLaser*abs(listVectorGradient[iDimensionScanning][len(listMagnitudeGradient) - 1])/max([abs(listVectorGradient[0][len(listMagnitudeGradient) - 1]),abs(listVectorGradient[1][len(listMagnitudeGradient) - 1]),abs(listVectorGradient[2][len(listMagnitudeGradient) - 1])]))   # from: https://www.sciencedirect.com/science/article/abs/pii/S1005030216300615
+            listGrowthRate.append(speedLaser*abs(listVectorGradient[iDimensionScanning[directionScanning]][len(listMagnitudeGradient) - 1])/max([abs(listVectorGradient[0][len(listMagnitudeGradient) - 1]),abs(listVectorGradient[1][len(listMagnitudeGradient) - 1]),abs(listVectorGradient[2][len(listMagnitudeGradient) - 1])]))   # from: https://www.sciencedirect.com/science/article/abs/pii/S1005030216300615
             
             listCoolingRate.append(listMagnitudeGradient[len(listMagnitudeGradient) - 1]*listGrowthRate[len(listMagnitudeGradient) - 1])
     
-    # sort the data points based on thermal gradient and write them to a file
+    # -------------------------------------- sort the data points based on thermal gradient and write them to a file
     
     listIndices = np.argsort(np.array(listMagnitudeGradient))
     
@@ -198,7 +199,7 @@ def main():
                           
     file_out.close()
     
-    # Find G and R for few important locations in the melt pool and write them to a file 
+    # -------------------------------------- Find G and R for few important locations in the melt pool and write them to a file 
     
     listIndices = np.argsort(np.array(listMagnitudeGradient))
     
@@ -214,7 +215,7 @@ def main():
     
     RforHighestG = listGrowthRate[listIndices[len(listIndices) - 1]]
     
-    #
+    # -------------------------------------- 
     listIndices = np.argsort(np.array(listGrowthRate))
     
     lowestR = listGrowthRate[listIndices[0]]
@@ -259,12 +260,188 @@ def main():
         
     file_out.close()
     
-    # Plots 
+    # -------------------------------------- extract data along centerline of the meltpool
+    
+    coordinateMaxAlongMeltpool = max(listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionScanning]])
+    
+    coordinateMinAlongMeltpool = min(listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionScanning]])
+    
+    # find the other in-plane coordinate for the maximum and minimum above
+    
+    if directionScanning == "X" and directionMeltPoolNormal == "Y" or \
+       directionScanning == "Y" and directionMeltPoolNormal == "X":
+    
+        directionTransverse = "Z"
+        
+    elif directionScanning == "X" and directionMeltPoolNormal == "Z" or \
+       directionScanning == "Z" and directionMeltPoolNormal == "X":
+    
+        directionTransverse = "Y"
+
+    elif directionScanning == "Y" and directionMeltPoolNormal == "Z" or \
+       directionScanning == "Z" and directionMeltPoolNormal == "Y":
+    
+        directionTransverse = "X"        
+    
+    for iPoint in range(0,len(listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionScanning]])):
+    
+        if abs(coordinateMaxAlongMeltpool - listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionScanning]][iPoint]) <= tolerance*abs(coordinateMaxAlongMeltpool):
+        
+            idPoint = iPoint
+            
+            break
+    
+    coordinateTransverseForMaxCoordAlongMeltpool = listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionTransverse]][idPoint]
+    
+    coordinateNormalForMaxCoordAlongMeltpool = listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionMeltPoolNormal]][idPoint]
+    
+    # -------------------------------------- interpolate the melt pool normal coordinate, G, R and cooling rate along the centerline
+        
+    xMinToBeInterpolated = coordinateMinAlongMeltpool + offsetTol*(coordinateMaxAlongMeltpool - coordinateMinAlongMeltpool)
+    
+    xMaxToBeInterpolated = coordinateMaxAlongMeltpool - offsetTol*(coordinateMaxAlongMeltpool - coordinateMinAlongMeltpool)
+    
+    # interpolate melt pool depth
+    coordsGridScanningDirection, coordsGridTransverseDirection, coordsGridNormalDirection = interpolate2D(                                          \
+                                           listPointsXref = listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionScanning]],       \
+                                           listPointsYref = listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionTransverse]],     \
+                                           listPointsZref = listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionMeltPoolNormal]], \
+                                           xMinToBeInterpolated = xMinToBeInterpolated,                                                             \
+                                           xMaxToBeInterpolated = xMaxToBeInterpolated,                                                             \
+                                           yMinToBeInterpolated = coordinateTransverseForMaxCoordAlongMeltpool,                                     \
+                                           yMaxToBeinterpolated = coordinateTransverseForMaxCoordAlongMeltpool,                                     \
+                                           nPoints = nPoints,                                                                                       \
+                                           methodInterpolation = methodInterpolation)
+                                            
+    plt.plot(coordsGridScanningDirection[0], coordsGridNormalDirection[0])
+    plt.title("Melt pool center line")
+    plt.xlabel("Length (m)")
+    plt.ylabel("Depth (m)")
+    
+    xlim_min = min(coordsGridScanningDirection[0]) - 6*offsetTol*(max(coordsGridScanningDirection[0])-min(coordsGridScanningDirection[0]))
+    xlim_max = max(coordsGridScanningDirection[0]) + 6*offsetTol*(max(coordsGridScanningDirection[0])-min(coordsGridScanningDirection[0]))
+
+    ylim_min = min(coordsGridNormalDirection[0]) - 6*offsetTol*(max(coordsGridNormalDirection[0])-min(coordsGridNormalDirection[0]))
+    ylim_max = max(coordsGridNormalDirection[0]) + 6*offsetTol*(max(coordsGridNormalDirection[0])-min(coordsGridNormalDirection[0]))
+
+    plt.axis([xlim_min, xlim_max, ylim_min, ylim_max])
+    
+    plt.show()
+ 
+    # interpolate temperatures
+    coordsGridScanningDirection, coordsGridTransverseDirection, gridTemperatures = interpolate2D(                                               \
+                                           listPointsXref = listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionScanning]],   \
+                                           listPointsYref = listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionTransverse]], \
+                                           listPointsZref = listTemperaturesPointsOnInterface,                                                  \
+                                           xMinToBeInterpolated = xMinToBeInterpolated,                                                         \
+                                           xMaxToBeInterpolated = xMaxToBeInterpolated,                                                         \
+                                           yMinToBeInterpolated = coordinateTransverseForMaxCoordAlongMeltpool,                                 \
+                                           yMaxToBeinterpolated = coordinateTransverseForMaxCoordAlongMeltpool,                                 \
+                                           nPoints = nPoints,                                                                                   \
+                                           methodInterpolation = methodInterpolation)
+                                            
+    plt.figure()
+    sc = plt.scatter(coordsGridScanningDirection[0], coordsGridNormalDirection[0], c = gridTemperatures[0], cmap = "jet")
+    plt.colorbar()
+    plt.title("Temperature (K) ")
+    plt.xlabel("Length (m)")
+    plt.ylabel("Depth (m)")
+    plt.axis([xlim_min, xlim_max, ylim_min, ylim_max])
+    plt.show()
+ 
+    # interpolate thermal gradient
+    coordsGridScanningDirection, coordsGridTransverseDirection, gridThermalGradient = interpolate2D(                                            \
+                                           listPointsXref = listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionScanning]],   \
+                                           listPointsYref = listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionTransverse]], \
+                                           listPointsZref = listMagnitudeGradient,                                                              \
+                                           xMinToBeInterpolated = xMinToBeInterpolated,                                                         \
+                                           xMaxToBeInterpolated = xMaxToBeInterpolated,                                                         \
+                                           yMinToBeInterpolated = coordinateTransverseForMaxCoordAlongMeltpool,                                 \
+                                           yMaxToBeinterpolated = coordinateTransverseForMaxCoordAlongMeltpool,                                 \
+                                           nPoints = nPoints,                                                                                   \
+                                           methodInterpolation = methodInterpolation)
+                                            
+    plt.figure()
+    sc = plt.scatter(coordsGridScanningDirection[0], coordsGridNormalDirection[0], c = gridThermalGradient[0], cmap = "jet")
+    plt.colorbar()
+    plt.title("Thermal gradient")
+    plt.xlabel("Length (m)")
+    plt.ylabel("Depth (m)")
+    plt.axis([xlim_min, xlim_max, ylim_min, ylim_max])
+    plt.show()
+  
+    # interpolate growth rate
+    coordsGridScanningDirection, coordsGridTransverseDirection, gridGrowthRate = interpolate2D(                                                 \
+                                           listPointsXref = listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionScanning]],   \
+                                           listPointsYref = listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionTransverse]], \
+                                           listPointsZref = listGrowthRate,                                                                     \
+                                           xMinToBeInterpolated = xMinToBeInterpolated,                                                         \
+                                           xMaxToBeInterpolated = xMaxToBeInterpolated,                                                         \
+                                           yMinToBeInterpolated = coordinateTransverseForMaxCoordAlongMeltpool,                                 \
+                                           yMaxToBeinterpolated = coordinateTransverseForMaxCoordAlongMeltpool,                                 \
+                                           nPoints = nPoints,                                                                                   \
+                                           methodInterpolation = methodInterpolation)
+                                            
+    plt.figure()
+    sc = plt.scatter(coordsGridScanningDirection[0], coordsGridNormalDirection[0], c = gridGrowthRate[0], cmap = "jet")
+    plt.colorbar()
+    plt.title("Growth rate")
+    plt.xlabel("Length (m)")
+    plt.ylabel("Depth (m)")
+    plt.axis([xlim_min, xlim_max, ylim_min, ylim_max])
+    plt.show()    
+    
+    # interpolate cooling rate
+    coordsGridScanningDirection, coordsGridTransverseDirection, gridCoolingRate = interpolate2D(                                                \
+                                           listPointsXref = listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionScanning]],   \
+                                           listPointsYref = listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionTransverse]], \
+                                           listPointsZref = listCoolingRate,                                                                    \
+                                           xMinToBeInterpolated = xMinToBeInterpolated,                                                         \
+                                           xMaxToBeInterpolated = xMaxToBeInterpolated,                                                         \
+                                           yMinToBeInterpolated = coordinateTransverseForMaxCoordAlongMeltpool,                                 \
+                                           yMaxToBeinterpolated = coordinateTransverseForMaxCoordAlongMeltpool,                                 \
+                                           nPoints = nPoints,                                                                                   \
+                                           methodInterpolation = methodInterpolation)
+                                            
+    plt.figure()
+    sc = plt.scatter(coordsGridScanningDirection[0], coordsGridNormalDirection[0], c = gridCoolingRate[0], cmap = "jet")
+    plt.colorbar()
+    plt.title("Cooling rate")
+    plt.xlabel("Length (m)")
+    plt.ylabel("Depth (m)")
+    plt.axis([xlim_min, xlim_max, ylim_min, ylim_max])
+    plt.show()
+
+    # write the data along the center line to file
+    
+    out_path = pathDir + 'coords_depth_Temp_G_R_coolingRate_alongCenterline.out'
+    
+    with open(out_path, 'w') as file_out:
+    
+        file_out.write("coordsLongitudinal     coordsTransverse     coordsNormal        depth          Temp        thermalGradMagnitude        growthRate      coolingRate \n")
+        
+        for ii in range(0,len(coordsGridScanningDirection[0])):
+        
+            file_out.write("{0:25.10f}{1:25.10f}{2:25.10f}{3:25.10f}{4:25.10f}{5:25.10f}{6:25.10f}{7:25.10f}\n".format(coordsGridScanningDirection[0][ii], 
+                                                                                         coordsGridTransverseDirection[0][ii],
+                                                                                         coordsGridNormalDirection[0][ii],
+                                                                                         abs(coordinateNormalForMaxCoordAlongMeltpool - coordsGridNormalDirection[0][ii]),
+                                                                                         gridTemperatures[0][ii],                                                                                         
+                                                                                         gridThermalGradient[0][ii],
+                                                                                         gridGrowthRate[0][ii],
+                                                                                         gridCoolingRate[0][ii]
+                                                                                        )
+                          )
+                          
+    file_out.close()
+    
+    # -------------------------------------- 3D Plots 
     
     plotMeltpoolScatter4D(listCoordinatesCartesianPointsOnInterface[0],
                           listCoordinatesCartesianPointsOnInterface[1],
                           listCoordinatesCartesianPointsOnInterface[2],
                           listCoordinatesCartesianPointsOnInterface[2],
+                          directionMeltPoolNormal,
                           "Melt Pool",
                           "X (m)",
                           "Y (m)",
@@ -276,6 +453,7 @@ def main():
                           listCoordinatesCartesianPointsOnInterface[1],
                           listCoordinatesCartesianPointsOnInterface[2],
                           listMagnitudeGradient,
+                          directionMeltPoolNormal,
                           "Thermal Gradient (G)",
                           "X (m)",
                           "Y (m)",
@@ -287,6 +465,7 @@ def main():
                           listCoordinatesCartesianPointsOnInterface[1],
                           listCoordinatesCartesianPointsOnInterface[2],
                           listGrowthRate,
+                          directionMeltPoolNormal,
                           "Growth Rate (R)",
                           "X (m)",
                           "Y (m)",
@@ -298,6 +477,7 @@ def main():
                           listCoordinatesCartesianPointsOnInterface[1],
                           listCoordinatesCartesianPointsOnInterface[2],
                           listCoolingRate,
+                          directionMeltPoolNormal,
                           "Cooling Rate",
                           "X (m)",
                           "Y (m)",
@@ -308,6 +488,34 @@ def main():
     # scatter plot the G vs R
     #plotScatter2D(listMagnitudeGradient,listGrowthRate,"G versus R","G (K/m)","R (m/s)")
     #plotMeltpoolSurface4D(listCoordinatesCartesianPointsOnInterface[0],listCoordinatesCartesianPointsOnInterface[1],listCoordinatesCartesianPointsOnInterface[2],listMagnitudeGradient)
+    
+    
+def interpolate2D(listPointsXref, listPointsYref, listPointsZref, \
+                xMinToBeInterpolated, xMaxToBeInterpolated, \
+                yMinToBeInterpolated, yMaxToBeinterpolated, \
+                nPoints, methodInterpolation):
+                
+    array_xy = []
+    
+    for ii in range(0, len(listPointsXref)):
+    
+        array_xy.append([])
+        
+    for jj in range(0, len(listPointsXref)):
+    
+        array_xy[jj].append(listPointsXref[jj])
+        
+        array_xy[jj].append(listPointsYref[jj])                 
+
+    x = np.linspace(xMinToBeInterpolated, xMaxToBeInterpolated, nPoints)
+    
+    y = np.linspace(yMinToBeInterpolated, yMaxToBeinterpolated, nPoints)    
+    
+    grid_x, grid_y = np.meshgrid(x, y)
+    
+    grid_z = griddata(np.array(array_xy), listPointsZref, (grid_x, grid_y), method = methodInterpolation) 
+    
+    return grid_x, grid_y, grid_z 
     
     
 def plotScatter2D(listPointsX,
@@ -391,6 +599,7 @@ def plotMeltpoolScatter4D(listPointsX,
                           listPointsY,
                           listPointsZ,
                           listPointsColor,
+                          directionMeltPoolNormal,
                           labelTitle,
                           labelX,
                           labelY,
@@ -422,15 +631,29 @@ def plotMeltpoolScatter4D(listPointsX,
     
     # plot the boundary tracing the top of the melt pool
     
-    coordinateZmeltpoolTop = max(listPointsZ)
+    if directionMeltPoolNormal == "X":
     
-    points = np.array([listPointsX, listPointsY]).transpose()
+        coordinateMeltpoolTop = max(listPointsX)
+        
+        points = np.array([listPointsY, listPointsZ]).transpose()
+        
+    elif directionMeltPoolNormal == "Y":
+    
+        coordinateMeltpoolTop = max(listPointsY)
+        
+        points = np.array([listPointsX, listPointsZ]).transpose()
+
+    elif directionMeltPoolNormal == "Z":
+    
+        coordinateMeltpoolTop = max(listPointsZ)
+        
+        points = np.array([listPointsX, listPointsY]).transpose()
     
     hull = ConvexHull(points)
     
     for simplex in hull.simplices:
     
-        ax.plot3D(points[simplex, 0], points[simplex, 1], np.array([coordinateZmeltpoolTop, coordinateZmeltpoolTop]), 'black', zorder = 5)
+        ax.plot3D(points[simplex, 0], points[simplex, 1], np.array([coordinateMeltpoolTop, coordinateMeltpoolTop]), 'black', zorder = 5)
     
     ax.view_init(elev = 50, azim = 205)
     
