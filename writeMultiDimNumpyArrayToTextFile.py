@@ -21,6 +21,20 @@ with open('test1.dat', 'w') as outfile:
         # Writing out a break to indicate different slices...
         outfile.write('# New slice\n')
 
+with open('test2.dat', 'w') as outfile:
+    outfile.write('# Array shape: {0}\n'.format(data.shape))
+    iSlice_Z = 0
+    for data_slice in data:
+        iSlice_Y = 0
+        for data_slice_sub in data_slice:
+            iData = 0
+            for data in data_slice_sub:
+                data_to_write = str(iData) + ' ' + str(iSlice_Y) + ' ' + str(iSlice_Z) + ' ' + str(data) + '\n'
+                outfile.write(data_to_write)
+                iData = iData + 1
+            iSlice_Y = iSlice_Y + 1
+        iSlice_Z = iSlice_Z + 1    
+                
 
 
 
