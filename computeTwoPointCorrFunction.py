@@ -2,14 +2,14 @@ import sys
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import numpy as np
-import porespy as ps
+import porespy as ps    # Calculates the two-point correlation function using Fourier transforms. see https://porespy.org/examples/metrics/reference/two_point_correlation.html
 import inspect
 import random
 inspect.signature(ps.metrics.two_point_correlation)
 
 #np.set_printoptions(threshold=sys.maxsize)
 
-#np.random.seed(10)
+np.random.seed(10)
 #im = ps.generators.blobs(shape=[100,100,100])
 #print('im: ',im)
 #fig, ax = plt.subplots(1, 1, figsize=[6, 6])
@@ -46,32 +46,32 @@ inspect.signature(ps.metrics.two_point_correlation)
 
 
 
+# Read the synthetic image and compute the 2-point corr function in 2D or for different slices
+performSliceWiseComputation = 'false' # slices are taken along one of the directions
+dataSynthetic = np.load('WC-720-51-final-imageOutput.npy')
 
-
-dataSynthetic = (1/255)*np.load('WC-720-51-final-imageOutput.npy')
-sizeSynthImage = dataSynthetic.shape[0]
-print('dataSyntheticImage: ',dataSynthetic.shape) 
-sliceNumber = random.randrange(sizeSynthImage)
 fig, ax = plt.subplots(1, 1, figsize=[6, 6])
-ax.imshow(dataSynthetic[:,:,sliceNumber], origin='lower', interpolation='none')
-ax.axis(False);
-plt.show()
-dataCorrSynthetic = ps.metrics.two_point_correlation(dataSynthetic)
-fig, ax = plt.subplots(1, 1, figsize=[6, 6])
-ax.plot(dataCorrSynthetic.distance, dataCorrSynthetic.probability, 'r.')
-ax.set_xlabel("distance")
-ax.set_ylabel("two point correlation function");
-plt.show()
+if performSliceWiseComputation == 'true':
+    for iSlice in range(0,dataSynthetic.shape[0]):
+        dataCorrSynthetic = ps.metrics.two_point_correlation(dataSynthetic[:,:,iSlice],voxel_size=1, bins=100)    
+        ax.plot(dataCorrSynthetic.distance, dataCorrSynthetic.probability, 'r-')
+else:        
+    dataCorrSynthetic = ps.metrics.two_point_correlation((1/255)*dataSynthetic,voxel_size=1, bins=100)    
+    ax.plot(dataCorrSynthetic.distance, dataCorrSynthetic.probability, 'r-', label='Synthetic Image - 3D')
+    
+# Read the reference image and compute the 2-point corr function
+dataReferenceImg = mpimg.imread('WC-720-51-final.png') # shape of dataReferenceImg = (pixelsY,pixelsX,nChannels), nChannels=3 for RGB image and nChannels=4 for RGBA image
+if dataReferenceImg.shape[2] >= 3:
+    dataReferenceImg_blackWhite = (1/3)*dataReferenceImg[:,:,0] + (1/3)*dataReferenceImg[:,:,1] + (1/3)*dataReferenceImg[:,:,2]
 
-## Read Images
-#dataReferenceImg = mpimg.imread('WC-720-51-final.png')
-#print('dataReferenceImg: ',dataReferenceImg.shape) 
-## Output Images
-#plt.imshow(dataReferenceImg)
-#plt.show()
-#dataCorrReal = ps.metrics.two_point_correlation(dataReferenceImg)
-#fig, ax = plt.subplots(1, 1, figsize=[6, 6])
-#ax.plot(dataCorrReal.distance, dataCorrReal.probability, 'r.')
-#ax.set_xlabel("distance")
-#ax.set_ylabel("two point correlation function");
-#plt.show()
+dataCorrReal = ps.metrics.two_point_correlation(dataReferenceImg_blackWhite,voxel_size=1, bins=100)
+
+ax.plot(dataCorrReal.distance, dataCorrReal.probability, 'r.', label='Reference Image - 2D')
+print(len(dataCorrReal.distance))
+print(dataCorrSynthetic.distance[len(dataCorrSynthetic.distance)-1])
+ax.set_xlim(0, 1.1*np.amin([dataCorrReal.distance[len(dataCorrReal.distance)-1],dataCorrSynthetic.distance[len(dataCorrSynthetic.distance)-1]]))
+#ax.set_xlim(0,50)
+ax.set_xlabel("Distance (r)")
+ax.set_ylabel("$S_2(r)$");
+ax.legend()
+plt.show()
