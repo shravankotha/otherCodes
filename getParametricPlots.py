@@ -12,7 +12,7 @@ import math
 
 idColumnX = 1
 idColumnY = 3
-idColumnData = 8        # 6-thermalGradient, 7-growthRate, 8-coolingRate
+idColumnData = 9        # 6-thermalGradient, 7-growthRate, 8-dendriteGrowthRate, 9-coolingRate
 multiplierForXaxisPlot = 1E6
 multiplierForYaxisPlot = 1E6
 sizeFont1 = 28
@@ -27,7 +27,7 @@ if idColumnData == 6:
     labelPlot = 'Thermal Gradient (K/m)'
 elif idColumnData == 7:
     labelPlot = 'Growth Rate (m/s)'
-elif idColumnData == 8:
+elif idColumnData == 9:
     labelPlot = 'Cooling Rate (K/s)'
 else:
     raise ValueError('User Error: This column id is not valid')
@@ -37,9 +37,9 @@ coordsGridNormalDirection_All = []
 gridData_All = []
 
 #
-out_paths = ['G:\My Drive\AFOSR project\C103_simulations_presentations\Data for C103 G.R plots - old\\125W-250mm-s-Data for G.R\\' + 'coords_depth_Temp_G_R_coolingRate_alongCenterline.out', \
-'G:\My Drive\AFOSR project\C103_simulations_presentations\Data for C103 G.R plots - old\\175W-600mm-s-Data for G.R\\' + 'coords_depth_Temp_G_R_coolingRate_alongCenterline.out', \
-'G:\My Drive\AFOSR project\C103_simulations_presentations\Data for C103 G.R plots - old\\230W-1200mm-s-Data for G.R\\' + 'coords_depth_Temp_G_R_coolingRate_alongCenterline.out']
+out_paths = ['G:\My Drive\AFOSR project\C103_simulations_presentations\PF data for G-R-K-PDAS-PF\\125W-250mm-s-PF Data\\' + 'coords_depth_Temp_G_R_Vd_coolingRate_alongCenterline.out', \
+'G:\My Drive\AFOSR project\C103_simulations_presentations\PF data for G-R-K-PDAS-PF\\175W-600mm-s-PF Data\\' + 'coords_depth_Temp_G_R_Vd_coolingRate_alongCenterline.out', \
+'G:\My Drive\AFOSR project\C103_simulations_presentations\PF data for G-R-K-PDAS-PF\\230W-1200mm-s-PF  Data\\' + 'coords_depth_Temp_G_R_Vd_coolingRate_alongCenterline.out']
 
 
 for iFile in range(0,len(out_paths)):
