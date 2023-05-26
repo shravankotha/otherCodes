@@ -1,4 +1,4 @@
 # Example command to run the code
 # python getGandRfromSimuFact.py [path_to_unv_file] [liquidus_temp_in_Kelvin] [units_for_temp_in_unv_file(should be K)] [scanning_direction] [scanningVelocity] [meltpool_normal_direction]
 
-python getGandRfromSimuFact.py "G:\My Drive\AFOSR project\C103_simulations\PF data for G-R-K-PDAS-PF\125W-250mm-s-PF Data\Geom-14-powderXctr2_mm_m_15.unv" 2689.53 K Y 0.25 Z
+python getGandRfromSimuFact.py "G:\My Drive\AFOSR project\C103_simulations_presentations\PF data for G-R-K-PDAS-PF\125W-250mm-s-PF Data\Geom-14-powderXctr2_mm_m_15.unv" 2689.53 K Y 0.25 Z
