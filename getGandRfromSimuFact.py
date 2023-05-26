@@ -63,7 +63,7 @@ def main():
                                                          temperatureLiquidus)
     
     listTemperaturesPointsOnInterface, listCoordinatesCartesianPointsOnInterface, listCoordinatesNaturalPointsOnInterface, \
-            listVectorGradient, listMagnitudeGradient, listGrowthRate, listCoolingRate = ([] for ii in range(7))
+            listVectorGradient, listMagnitudeGradient, listDendriteGrowthRate, listGrowthRate, listCoolingRate = ([] for ii in range(8))
     
     for iDimension in range(0, 3):
     
@@ -166,7 +166,9 @@ def main():
                 
             listMagnitudeGradient.append(math.sqrt(magnitude))
             
-            listGrowthRate.append(speedLaser*abs(listVectorGradient[iDimensionScanning[directionScanning]][len(listMagnitudeGradient) - 1])/max([abs(listVectorGradient[0][len(listMagnitudeGradient) - 1]),abs(listVectorGradient[1][len(listMagnitudeGradient) - 1]),abs(listVectorGradient[2][len(listMagnitudeGradient) - 1])]))   # from: https://www.sciencedirect.com/science/article/abs/pii/S1005030216300615
+            listDendriteGrowthRate.append(speedLaser*abs(listVectorGradient[iDimensionScanning[directionScanning]][len(listMagnitudeGradient) - 1])/max([abs(listVectorGradient[0][len(listMagnitudeGradient) - 1]),abs(listVectorGradient[1][len(listMagnitudeGradient) - 1]),abs(listVectorGradient[2][len(listMagnitudeGradient) - 1])]))   # from: https://www.sciencedirect.com/science/article/abs/pii/S1005030216300615
+            
+            listGrowthRate.append(speedLaser*abs(listVectorGradient[iDimensionScanning[directionScanning]][len(listMagnitudeGradient) - 1])/math.sqrt(magnitude))
             
             listCoolingRate.append(listMagnitudeGradient[len(listMagnitudeGradient) - 1]*listGrowthRate[len(listMagnitudeGradient) - 1])
     
@@ -176,15 +178,15 @@ def main():
     
     pathDir = os.path.splitdrive(nameFile)[0] + os.path.split(os.path.splitdrive(nameFile)[1])[0] + "/"
     
-    out_path = pathDir + 'coords_Temp_G_R_coolingRate.out'
+    out_path = pathDir + 'coords_Temp_G_R_Vd_coolingRate.out'
     
     with open(out_path, 'w') as file_out:
     
-        file_out.write("coordsX     coordsY     coordsZ     Temp        thermalGradX        thermalGradY        thermalGradZ        thermalGradMagnitude        growthRate      coolingRate \n")
+        file_out.write("coordsX     coordsY     coordsZ     Temp        thermalGradX        thermalGradY        thermalGradZ        thermalGradMagnitude        growthRate   dendriteGrowthRate   coolingRate \n")
         
         for ii in range(0,len(listIndices)):
         
-            file_out.write("{0:25.10f}{1:25.10f}{2:25.10f}{3:25.10f}{4:25.10f}{5:25.10f}{6:25.10f}{7:25.10f}{8:25.10f}{9:25.10f}\n".format(listCoordinatesCartesianPointsOnInterface[0][listIndices[ii]], 
+            file_out.write("{0:25.10f}{1:25.10f}{2:25.10f}{3:25.10f}{4:25.10f}{5:25.10f}{6:25.10f}{7:25.10f}{8:25.10f}{9:25.10f}{10:25.10f}\n".format(listCoordinatesCartesianPointsOnInterface[0][listIndices[ii]], 
                                                                                          listCoordinatesCartesianPointsOnInterface[1][listIndices[ii]],
                                                                                          listCoordinatesCartesianPointsOnInterface[2][listIndices[ii]],
                                                                                          listTemperaturesPointsOnInterface[listIndices[ii]],
@@ -193,6 +195,7 @@ def main():
                                                                                          listVectorGradient[2][listIndices[ii]],
                                                                                          listMagnitudeGradient[listIndices[ii]],
                                                                                          listGrowthRate[listIndices[ii]],
+                                                                                         listDendriteGrowthRate[listIndices[ii]],
                                                                                          listCoolingRate[listIndices[ii]]
                                                                                         )
                           )
@@ -214,6 +217,13 @@ def main():
     RforModerateG = listGrowthRate[listIndices[int(len(listIndices)/2)]]
     
     RforHighestG = listGrowthRate[listIndices[len(listIndices) - 1]]
+    
+    VdforLowestG = listDendriteGrowthRate[listIndices[0]]
+    
+    VdforModerateG = listDendriteGrowthRate[listIndices[int(len(listIndices)/2)]]
+    
+    VdforHighestG = listDendriteGrowthRate[listIndices[len(listIndices) - 1]]
+    
     
     # -------------------------------------- 
     listIndices = np.argsort(np.array(listGrowthRate))
@@ -390,6 +400,27 @@ def main():
     plt.ylabel("Depth (m)")
     plt.axis([xlim_min, xlim_max, ylim_min, ylim_max])
     plt.show()    
+
+    # interpolate dendrite growth rate
+    coordsGridScanningDirection, coordsGridTransverseDirection, gridDendriteGrowthRate = interpolate2D(                                                 \
+                                           listPointsXref = listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionScanning]],   \
+                                           listPointsYref = listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionTransverse]], \
+                                           listPointsZref = listDendriteGrowthRate,                                                             \
+                                           xMinToBeInterpolated = xMinToBeInterpolated,                                                         \
+                                           xMaxToBeInterpolated = xMaxToBeInterpolated,                                                         \
+                                           yMinToBeInterpolated = coordinateTransverseForMaxCoordAlongMeltpool,                                 \
+                                           yMaxToBeinterpolated = coordinateTransverseForMaxCoordAlongMeltpool,                                 \
+                                           nPoints = nPoints,                                                                                   \
+                                           methodInterpolation = methodInterpolation)
+                                            
+    plt.figure()
+    sc = plt.scatter(coordsGridScanningDirection[0], coordsGridNormalDirection[0], c = gridDendriteGrowthRate[0], cmap = "jet")
+    plt.colorbar()
+    plt.title("Dendrite growth rate")
+    plt.xlabel("Length (m)")
+    plt.ylabel("Depth (m)")
+    plt.axis([xlim_min, xlim_max, ylim_min, ylim_max])
+    plt.show()
     
     # interpolate cooling rate
     coordsGridScanningDirection, coordsGridTransverseDirection, gridCoolingRate = interpolate2D(                                                \
@@ -414,21 +445,22 @@ def main():
 
     # write the data along the center line to file
     
-    out_path = pathDir + 'coords_depth_Temp_G_R_coolingRate_alongCenterline.out'
+    out_path = pathDir + 'coords_depth_Temp_G_R_Vd_coolingRate_alongCenterline.out'
     
     with open(out_path, 'w') as file_out:
     
-        file_out.write("coordsLongitudinal     coordsTransverse     coordsNormal        depth          Temp        thermalGradMagnitude        growthRate      coolingRate \n")
+        file_out.write("coordsLongitudinal     coordsTransverse     coordsNormal        depth          Temp        thermalGradMagnitude        growthRate   dendriteGrowthRate   coolingRate \n")
         
         for ii in range(0,len(coordsGridScanningDirection[0])):
         
-            file_out.write("{0:25.10f}{1:25.10f}{2:25.10f}{3:25.10f}{4:25.10f}{5:25.10f}{6:25.10f}{7:25.10f}\n".format(coordsGridScanningDirection[0][ii], 
+            file_out.write("{0:25.10f}{1:25.10f}{2:25.10f}{3:25.10f}{4:25.10f}{5:25.10f}{6:25.10f}{7:25.10f}{8:25.10f}\n".format(coordsGridScanningDirection[0][ii], 
                                                                                          coordsGridTransverseDirection[0][ii],
                                                                                          coordsGridNormalDirection[0][ii],
                                                                                          abs(coordinateNormalForMaxCoordAlongMeltpool - coordsGridNormalDirection[0][ii]),
                                                                                          gridTemperatures[0][ii],                                                                                         
                                                                                          gridThermalGradient[0][ii],
                                                                                          gridGrowthRate[0][ii],
+                                                                                         gridDendriteGrowthRate[0][ii],
                                                                                          gridCoolingRate[0][ii]
                                                                                         )
                           )
@@ -467,6 +499,18 @@ def main():
                           listGrowthRate,
                           directionMeltPoolNormal,
                           "Growth Rate (R)",
+                          "X (m)",
+                          "Y (m)",
+                          "Z (m)",
+                          shouldTurnOffGrid = True,
+                          shouldTurnOffAxes = True)
+
+    plotMeltpoolScatter4D(listCoordinatesCartesianPointsOnInterface[0],
+                          listCoordinatesCartesianPointsOnInterface[1],
+                          listCoordinatesCartesianPointsOnInterface[2],
+                          listDendriteGrowthRate,
+                          directionMeltPoolNormal,
+                          "Dendrite Growth Rate (R)",
                           "X (m)",
                           "Y (m)",
                           "Z (m)",
