@@ -28,6 +28,7 @@ def main():
             print('nTimeStepsPerTrajectory: ',nTimeStepsPerTrajectory)
             coord_prev_0 = arrayRadiiTrajectories[iTrajectory]
             coord_prev_1 = 0
+            trajectoryTime = 0
             outfile.write(str(time) + ',' + str(coord_prev_0) + ',' + str(coord_prev_1) + ',' + str(coord_prev_2) + ',' + str(power) + '\n')
             for iTimeStepTrajectory in range(1,nTimeStepsPerTrajectory):
                 coord_0 = arrayRadiiTrajectories[iTrajectory]*math.cos(iTimeStepTrajectory*angleResolutionTrajectoryInDegrees*math.pi/180)
@@ -36,6 +37,7 @@ def main():
                 distance = math.sqrt((coord_0-coord_prev_0)**2 + (coord_1-coord_prev_1)**2 + (coord_2-coord_prev_2)**2)
                 incrementTime = distance/velocityScan
                 time = time + incrementTime
+                trajectoryTime = trajectoryTime + time
                 if iTrajectory == nTrajectories-1 and iTimeStepTrajectory == nTimeStepsPerTrajectory-1:
                     outfile.write(str(time) + ',' + str(coord_0) + ',' + str(coord_1) + ',' + str(coord_2) + ',' + str(0) + '\n')
                 else:
