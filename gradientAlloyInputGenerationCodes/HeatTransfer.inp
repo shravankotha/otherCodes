@@ -1,0 +1,198 @@
+*HEADING
+ Thermal analysis of printing a 4-layer Challenge Problem (LDED, ER70S-6) 
+** Units: <mm,N,tonne,s,Celsius>
+**------------------------------------------------
+*INCLUDE, INPUT=ABQ_am_special_purpose_types.inp
+**------------------------------------------------
+*INCLUDE, INPUT = Challenge_Problem_Ht.inp
+*SOLID SECTION, MATERIAL=ER70S-6, ELSET=Print
+*SOLID SECTION, MATERIAL=AISI1018, ELSET=Base
+*SOLID SECTION, MATERIAL=AISI1018, ELSET=Table
+*ELEMENT PROGRESSIVE ACTIVATION, NAME="LDED.Printing", ELSET=Print
+**------------------------------------------------
+*PHYSICAL CONSTANTS, ABSOLUTE ZERO=-273.15, STEFAN BOLTZMANN=5.67e-11
+** Stefan Boltzmann constant unit: mW/(mm^2.C^4)
+**------------------------------------------------
+*MATERIAL, NAME=ER70S-6
+*DENSITY
+** Unit: tonne/mm^3
+ 7.90e-09
+*CONDUCTIVITY
+** Unit: mW/(mm.C)
+ 60.0,  25.
+ 58.0, 100.
+ 53.0, 200. 
+ 50.0, 300.
+ 46.0, 400.
+ 41.0, 500.
+ 37.0, 600.
+ 33.0, 700.
+ 29.0, 800.
+*SPECIFIC HEAT
+** Unit: mJ/(tonne.C)
+ 450e+06,  25.
+ 489e+06, 100.
+ 520e+06, 200.
+ 545e+06, 250.
+ 558e+06, 300.
+ 574e+06, 350.
+ 598e+06, 400.
+ 665e+06, 500.
+ 744e+06, 600.
+ 862e+06, 700.
+*LATENT HEAT, SMOOTH
+** Unit: mJ/tonne, C, C
+ 270E9, 1440., 1505, 3.
+**
+*MATERIAL, NAME=AISI1018
+*DENSITY
+** Unit: tonne/mm^3
+ 7.91e-09
+*CONDUCTIVITY
+** Unit: mW/(mm.C)
+ 46.0,   25.
+ 46.0,  100.
+ 45.0,  200. 
+ 43.0,  300.
+ 41.0,  400.
+ 38.0,  500.
+ 35.0,  600.
+ 29.0,  700.
+ 24.0,  800.
+*SPECIFIC HEAT
+** Unit: mJ/(tonne.C)
+ 430e+06,  25.
+ 499e+06, 100.
+ 551e+06, 200.
+ 581e+06, 300.
+ 610e+06, 400.
+ 652e+06, 500.
+ 710e+06, 600.
+ 789e+06, 700.
+ 864e+06, 800.
+*LATENT HEAT, SMOOTH
+** Unit: mJ/tonne, C, C
+ 270E9, 1440., 1505, 3.
+** INTERACTION PROPERTIES
+*Surface Interaction, name=IntProp-1
+1.,
+*Gap Conductance
+  1.0,  0.
+  0.0, 0.1
+**conductivity, gap, average temp., flow rate
+**------------------------------------------------
+**Material Deposition
+*PARAMETER
+ beadWidth      = 6.5
+ beadHeight     = 2.5
+**
+*TABLE COLLECTION, NAME="ABQ_AM.MaterialDeposition"
+*PARAMETER TABLE, TYPE= "ABQ_AM.MaterialDeposition"
+ "LDED.PrintHeadDepositionTrajectory","Bead"
+**
+*PARAMETER TABLE,  TYPE= "ABQ_AM.MaterialDeposition.Bead"
+ "Z", <beadHeight>, <beadWidth>, 0.,"Below"
+**
+*PARAMETER TABLE,  TYPE= "ABQ_AM.MaterialDeposition.Advanced"
+ "Full",0.0,0.0,0.01,,,
+**------------------------------------------------
+**Moving heat source
+*PARAMETER
+ laserSpotRadius            = 4.25
+ penetrationDepth           = 4.25
+ GoldakParamA  = laserSpotRadius
+ GoldakParamB  = penetrationDepth
+ GoldakParamCF = laserSpotRadius/7
+ GoldakParamCR = laserSpotRadius/7
+ GoldakParamFF = 2*(GoldakParamCF)/(GoldakParamCR+GoldakParamCF)
+ GoldakParamFR = 2*(GoldakParamCR)/(GoldakParamCR+GoldakParamCF)
+**
+*TABLE COLLECTION, NAME="ABQ_AM.EnergyInput"
+*PARAMETER TABLE,  TYPE="ABQ_AM.MovingHeatSource"
+ "LDED.LaserPath","Goldak"
+*PARAMETER TABLE,  TYPE="ABQ_AM.MovingHeatSource_Advanced"
+ "True","False","Relative",0.0,0.0,-1.0, 1.0
+*PARAMETER TABLE,  TYPE="ABQ_AM.MovingHeatSource.Goldak"
+ 10, 10, 10,
+ <GoldakParamA>, <GoldakParamB>, <GoldakParamCF>, <GoldakParamCR>,
+ <GoldakParamFF>, <GoldakParamFR>, 
+ 1.25
+*PROPERTY TABLE, TYPE="ABQ_AM.AbsorptionCoeff"
+ 0.99
+**------------------------------------------------
+*Event Series, Name="LDED.PrintHeadDepositionTrajectory",
+               Type="ABQ_AM.MaterialDeposition",
+               Time=Total, input=ChallengeScanPath.inp
+*Event Series, Name="LDED.LaserPath",
+               Type="ABQ_AM_PowerMagnitude",
+               Time=Total, input=ChallengeScanPath.inp
+**------------------------------------------------
+*INITIAL CONDITIONS,TYPE=TEMPERATURE
+ All, 26.
+*BOUNDARY
+ Constraint, 1, 3
+**------------------------------------------------
+*STEP,INC=80000, NAME=Printing, UNSYMM=NO, EXTRAPOLATION=NO
+*HEAT TRANSFER
+ 0.5, 3414.4, 0.5e-10,0.5
+*RESTART, WRITE, OVERLAY
+*ACTIVATE ELEMENTS,ACTIVATION="LDED.Printing"
+ "ABQ_AM.MaterialDeposition"
+*DFLUX
+ Printsubstrate, MBFNU, , "ABQ_AM.EnergyInput"
+*FILM
+ Print, FFS, 26., 0.018
+ Base, FFS, 26., 0.015
+ Table, FFS, 26., 0.02
+** Unit: mW/(mm^2.C)
+*RADIATE
+ All, RFS, 26., 0.6
+*Solution Technique, Type=Quasi-Newton, Reform Kernel=8
+*OUTPUT,FIELD,FREQ=1
+*NODE OUTPUT
+ NT 
+***OUTPUT,FIELD,FREQ=1
+***NODE OUTPUT, NSET=All
+** NT
+*END STEP
+**------------------------------------------------
+*STEP, INC=80000, NAME=Cooling, UNSYMM=NO, EXTRAPOLATION=NO
+*HEAT TRANSFER
+ 10, 500., 10E-10, 10
+*RESTART, WRITE, FREQUENCY=10
+*FILM
+ Print, FFS, 26., 0.018
+ Base, FFS, 26., 0.015
+ Table, FFS, 26., 0.02
+** Unit: mW/(mm^2.C)
+*RADIATE
+ All, RFS, 26., 0.6
+*Solution Technique, Type=Quasi-Newton, Reform Kernel=8
+*OUTPUT,FIELD,FREQ=1
+*NODE OUTPUT
+ NT
+***OUTPUT, HISTORY, FREQ=1
+***NODE OUTPUT, NSET=All
+** NT
+*END STEP
+**------------------------------------------------
+*STEP, INC=80000, NAME=MoreCooling, UNSYMM=NO, EXTRAPOLATION=NO
+*HEAT TRANSFER
+ 100, 10000, 100E-10, 100
+*RESTART, WRITE, FREQUENCY=10
+*FILM
+ Print, FFS, 26., 0.018
+ Base, FFS, 26., 0.015
+ Table, FFS, 26., 0.02
+** Unit: mW/(mm^2.C)
+*RADIATE
+ All, RFS, 26., 0.6
+*Solution Technique, Type=Quasi-Newton, Reform Kernel=8
+*OUTPUT,FIELD,FREQ=1
+*NODE OUTPUT
+ NT
+***OUTPUT, HISTORY, FREQ=1
+***NODE OUTPUT, NSET=All
+** NT
+*END STEP
+**===================================================================
