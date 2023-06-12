@@ -9,14 +9,16 @@ def main():
    velocityScan = 10.5
    arrayRadiiTrajectories = [0.5] + [1.0] + [1.5] + [2.0] + [2.5] + [3.0] + [3.5] + [3.5] 
    nTrajectories = len(arrayRadiiTrajectories)
-   arrayAngleResolutionTrajectoryInDegrees = nTrajectories*[5]    # NOTE: should be an integer divisor of 360
+   arrayAngleResolutionTrajectoryInDegrees = nTrajectories*[1]    # NOTE: should be an integer divisor of 360
    arrayPowers = 4*[8500000] + 4*[7900000] + 4*[7360000] + 4*[6840000] + 4*[6320000] + 76*[5780000]  # array size = numLayers
    arrayDwellTimes = 4*[4.5] + 91*[8.5]     # array size = numLayers - 1   
-   
+   numTimeStepsFirstTrajectory = 5
+   #trajectoryTimeMultFactor = 1
+   nTimeStepsPerCoolingStep = 5
    #print(nTrajectories,len(arrayAngleResolutionTrajectoryInDegrees),len(arrayPowers),len(arrayDwellTimes))
    time = 0
    outfile = open('scanPath.inp', 'w')   
-   outfile.write('** (1)time (2-4)X,Y,Z-coord of location of first event (5) first field value of first event (2kW laser)\n')
+   outfile.write('** (1)time (2-4)X,Y,Z-coord of location of first event (5) first field value of first event \n')
    outfile.write(str(time) + ',' + str(0) + ',' + str(0) + ',' + str(thicknessLayer) + ',' + str(arrayPowers[0]) + '\n')
    outfile_step = open('abaqusSteps.inp', 'w')
    for iLayer in range(0,numLayers):    # goes from 0 to 95
@@ -32,6 +34,10 @@ def main():
             coord_prev_0 = arrayRadiiTrajectories[iTrajectory]
             coord_prev_1 = 0
             trajectoryTime = 0
+            if iTrajectory == 0:
+                incrementTime = (coord_prev_0/velocityScan)
+                time = time + incrementTime
+                trajectoryTime = trajectoryTime + incrementTime
             outfile.write(str(time) + ',' + str(coord_prev_0) + ',' + str(coord_prev_1) + ',' + str(coord_prev_2) + ',' + str(power) + '\n')
             for iTimeStepTrajectory in range(1,nTimeStepsPerTrajectory):
                 coord_0 = arrayRadiiTrajectories[iTrajectory]*math.cos(iTimeStepTrajectory*angleResolutionTrajectoryInDegrees*math.pi/180)
@@ -53,12 +59,13 @@ def main():
                 time = time + interTrajectoryTime
                 trajectoryTime = trajectoryTime + interTrajectoryTime
             nStepsPrinting = nStepsPrinting + 1
-            writeStep_Printing(outfile_step,trajectoryTime/10,trajectoryTime,1E-10,trajectoryTime/10,iLayer+1,nStepsPrinting)            
+            nTimeStepsThisStep =  numTimeStepsFirstTrajectory*arrayRadiiTrajectories[iTrajectory]/arrayRadiiTrajectories[0]
+            writeStep_Printing(outfile_step,trajectoryTime/nTimeStepsThisStep,trajectoryTime,1E-10,trajectoryTime/nTimeStepsThisStep,iLayer+1,nStepsPrinting)            
         if iLayer < numLayers-1:
             dwellTime = arrayDwellTimes[iLayer]
             time = time + dwellTime
             nStepsCooling = nStepsCooling + 1
-            writeStep_Cooling(outfile_step,dwellTime/10,dwellTime,1E-10,dwellTime/10,iLayer+1,nStepsCooling)
+            writeStep_Cooling(outfile_step,dwellTime/nTimeStepsPerCoolingStep,dwellTime,1E-10,dwellTime/nTimeStepsPerCoolingStep,iLayer+1,nStepsCooling)
         
    outfile.close()
    
@@ -67,6 +74,7 @@ def writeStep_Printing(fileHandle,initialTime,finalTime,minTime,maxTime,layerNum
     fileHandle.write('*STEP,INC=80000, NAME=Printing_layer_' + str(layerNumber) + '_traj_' + str(stepNumber) + ', UNSYMM=NO, EXTRAPOLATION=NO' + '\n')
     fileHandle.write('*HEAT TRANSFER\n')
     fileHandle.write(' ' + str(initialTime) + ',' + str(finalTime) + ',' + str(minTime) + ',' + str(maxTime) + '\n')
+    #fileHandle.write( str(finalTime) + ' ,' + str('kk') + '\n')
     fileHandle.write('*RESTART, WRITE, OVERLAY' + '\n')
     fileHandle.write('*ACTIVATE ELEMENTS,ACTIVATION="LDED.Printing"' + '\n')
     fileHandle.write(' "ABQ_AM.MaterialDeposition"' + '\n')
@@ -83,6 +91,7 @@ def writeStep_Cooling(fileHandle,initialTime,finalTime,minTime,maxTime,layerNumb
     fileHandle.write('*STEP, INC=80000, NAME=Cooling_layer_' + str(layerNumber) + '_step_' + str(stepNumber) + ', UNSYMM=NO, EXTRAPOLATION=NO' + '\n')
     fileHandle.write('*HEAT TRANSFER' + '\n')
     fileHandle.write(' ' + str(initialTime) + ',' + str(finalTime) + ',' + str(minTime) + ',' + str(maxTime) + '\n')
+    #fileHandle.write( str(finalTime) + ' ,' + str('kk') + '\n')
     fileHandle.write('*RESTART, WRITE, FREQUENCY=10' + '\n')
     fileHandle.write('*Solution Technique, Type=Quasi-Newton, Reform Kernel=8' + '\n')
     fileHandle.write('*OUTPUT,FIELD,FREQ=1' + '\n')
