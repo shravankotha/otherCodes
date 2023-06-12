@@ -17,6 +17,7 @@ def main():
    time = 0
    outfile = open('scanPath.inp', 'w')   
    outfile.write('** (1)time (2-4)X,Y,Z-coord of location of first event (5) first field value of first event (2kW laser)\n')
+   outfile.write(str(time) + ',' + str(0) + ',' + str(0) + ',' + str(thicknessLayer) + ',' + str(arrayPowers[0]) + '\n')
    outfile_step = open('abaqusSteps.inp', 'w')
    for iLayer in range(0,numLayers):    # goes from 0 to 95
         print('Processing layer : ' + str(iLayer))
@@ -25,9 +26,9 @@ def main():
         coord_prev_2 = coord_2
         nStepsPrinting = 0
         nStepsCooling = 0
-        for iTrajectory in range(0,nTrajectories):            
+        for iTrajectory in range(0,nTrajectories):
             angleResolutionTrajectoryInDegrees = arrayAngleResolutionTrajectoryInDegrees[iTrajectory]
-            nTimeStepsPerTrajectory = int(360/angleResolutionTrajectoryInDegrees) + 1            
+            nTimeStepsPerTrajectory = int(360/angleResolutionTrajectoryInDegrees) + 1
             coord_prev_0 = arrayRadiiTrajectories[iTrajectory]
             coord_prev_1 = 0
             trajectoryTime = 0
