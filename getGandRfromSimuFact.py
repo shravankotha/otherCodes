@@ -11,52 +11,35 @@ from scipy.interpolate import griddata
 import numpy as np
 import math
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
-from interpolate2D import interpolate2D
-from partitionCube import partitionCube
-from hexElement import dShapeFunction_dCaterianCoords, getJacobianHexElement
-from hexElement import dShapeFunction_dNaturalCoords, coordsNaturalElementHex
-from hexElement import evaluateShapeFunctions, getQuantityInsideTheElement
-from multiplyMatrices import multiplyMatrices
-from parseUnvFile_SimuFact import parseUnvFile
-from meltpoolCalculationsFromFE import findElementsContainingInterfaceSolidLiquid, findInterfacesSolidLiquidInAnElement
-from plotMeltpool4D import plotMeltpoolScatter4D
+import interpolate2D
+import partitionCube
+import hexElement 
+import multiplyMatrices
+import parseUnvFile_SimuFact 
+import meltpoolCalculationsFromFE
+import plotMeltpoolScatter4D
 
 def main():
 
-    methodInterpolation = 'linear'
-    
-    nPoints = 50
-    
-    offsetTol = 0.005
-    
-    tolerance = 1E-6   
-    
-    timeStart = time.time()
+    nPoints, offsetTol, tolerance, methodInterpolation, timeStart  = 50, 0.005, 1E-6, 'linear', time.time()
     
     nArguments = len(sys.argv)
     
     if nArguments != 7:
     
         print('Error: Five command line arguments are expected -- (1) unv file name including path      \
-                                                                  (2) liquidus temperature in Kelvin    \
-                                                                  (3) Temperature units (C or K)        \
-                                                                  (4) Laser direction (X or Y or Z)     \
-                                                                  (5) Laser speed                       \
-                                                                  (6) Melt pool normal direction')
+                                                                  (2) liquidus temperature (same units as nodal temp values)   \
+                                                                  (3) Laser direction (X or Y or Z)     \
+                                                                  (4) Laser speed                       \
+                                                                  (5) Melt pool normal direction')
                                                                   
         return
         
-    nameFile = sys.argv[1]
+    nameFile, temperatureLiquidus = sys.argv[1], float(sys.argv[2])
     
-    temperatureLiquidus = float(sys.argv[2])
+    directionScanning, speedLaser = sys.argv[3], float(sys.argv[4])   
     
-    unitsTemperature = sys.argv[3]
-    
-    directionScanning = sys.argv[4]
-    
-    speedLaser = float(sys.argv[5])
-    
-    directionMeltPoolNormal = sys.argv[6]
+    directionMeltPoolNormal = sys.argv[5]
     
     iDimensionScanning = {"X":0, "Y":1, "Z":2}
     
@@ -64,26 +47,16 @@ def main():
     
     listNodes, listCoordinatesX, listCoordinatesY, listCoordinatesZ, listConnectivity, listTemperatures = parseUnvFile(nameFile)
     
-    listElementIDs = [ii+1 for ii in range(0,len(listConnectivity))]
+    listElementIDs = [ii + 1 for ii in range(0,len(listConnectivity))]
     
     # -------------------------------------- Find the solid-liquid interface
     
-    listElementsWithInterface = findElementsContainingInterfaceSolidLiquid(listElementIDs,
-                                                                           listConnectivity,
-                                                                           listTemperatures,
-                                                                           unitsTemperature,
-                                                                           temperatureLiquidus)
+    listElementsWithInterface = findElementsContainingInterfaceSolidLiquid(listElementIDs, listConnectivity, listTemperatures, temperatureLiquidus)
     
-    listTemperaturesPointsOnInterface, listCoordinatesCartesianPointsOnInterface, listCoordinatesNaturalPointsOnInterface, \
-            listVectorGradient, listMagnitudeGradient, listDendriteGrowthRate, listGrowthRate, listCoolingRate = ([] for ii in range(8))
+    listTemperaturesPointsOnInterface, listCoordinatesCartesianPointsOnInterface, \
+            listVectorGradient, listMagnitudeGradient, listDendriteGrowthRate, listGrowthRate, listCoolingRate = ([] for ii in range(7))
     
-    for iDimension in range(0, 3):
-    
-        listCoordinatesCartesianPointsOnInterface.append([])
-        
-        listCoordinatesNaturalPointsOnInterface.append([])
-        
-        listVectorGradient.append([])
+    listCoordinatesCartesianPointsOnInterface = [[],[],[]], [[],[],[]]
     
     # -------------------------------------- Loop over all the interface elements and compute the interface points, thermal gradient, growth rate and cooling rate
     
@@ -95,92 +68,39 @@ def main():
         
         listTemperaturesElement = [listTemperatures[iNode - 1] for iNode in listNodesConnectedElement]
         
-        listCoordinatesNodalElement = []
+        listCoordinatesNodalElement = [[],[],[]]
+                       
+        listCoordinatesNodalElement[0] = [listCoordinatesX[listNodesConnectedElement[iNode] - 1] for iNode in range(0, len(listNodesConnectedElement)]
+                           
+        listCoordinatesNodalElement[1] = [listCoordinatesY[listNodesConnectedElement[iNode] - 1] for iNode in range(0, len(listNodesConnectedElement)]
+                           
+        listCoordinatesNodalElement[2] = [listCoordinatesZ[listNodesConnectedElement[iNode] - 1] for iNode in range(0, len(listNodesConnectedElement)]
         
-        for iDimension in range(0, 3):
+        listNaturalCoodsInterfaceCubeNodes, temperatureNodesNewWithInterface = findCubesEnclosingSolidLiquidInterfaceInAnElement(listNodesConnectedElement, listTemperaturesElement, temperatureLiquidus)
         
-            listCoordinatesNodalElement.append([])  
-            
-            for iNode in range(0, len(listNodesConnectedElement)):
-            
-                if iDimension == 0:
+        # -------------------------------------- evaluate the centroid of each cube, temperature at the centroid and gradient cooling rate etc. at the centroid
                 
-                    listCoordinatesNodalElement[iDimension].append(listCoordinatesX[listNodesConnectedElement[iNode] - 1])
-                    
-                elif iDimension == 1:
-                
-                    listCoordinatesNodalElement[iDimension].append(listCoordinatesY[listNodesConnectedElement[iNode] - 1])
-                    
-                elif iDimension == 2:
-                
-                    listCoordinatesNodalElement[iDimension].append(listCoordinatesZ[listNodesConnectedElement[iNode] - 1])
+        for iCube in range(0, len(listNaturalCoodsInterfaceCubeNodes)):
         
-        coordinatesNodesNewWithInterface, temperatureNodesNewWithInterface = findInterfacesSolidLiquidInAnElement(listNodesConnectedElement,
-                                                                                                                  listTemperaturesElement,
-                                                                                                                  listCoordinatesNodalElement,
-                                                                                                                  temperatureLiquidus)
-        
-        # -------------------------------------- evaluate the centroid of each cube, temperature at the centroid and gradient at the centroid
-        
-        for iCube in range(0, len(coordinatesNodesNewWithInterface)):
-        
-            listTemperaturesCubeCorners = []
+            listNaturalCoodsInterfaceCubeNodes_ = listNaturalCoodsInterfaceCubeNodes[iCube]
             
-            listCartesianCoordinates = []
+            listCoordinatesCartesianAtCentroid, listCoordinatesNaturalAtCentroid, temperatureAtCentroidgetCentroidValuesInterfaceCube = getCentroidValuesInterfaceCube(listTemperaturesElement,listCoordinatesNodalElement,listNaturalCoodsInterfaceCubeNodes)
+                
+            listCoordinatesCartesianPointsOnInterface[iDimension].append(listCartesianCoordinatesAtCentroid[iDimension])
             
-            for iDimension in range(0, 3):
+            listTemperaturesPointsOnInterface.append(listTemperaturesAtCentroid)
             
-                listCartesianCoordinates.append([])
-                
-            for iNode in range(0, len(coordinatesNodesNewWithInterface[0][0])):
+            vectorGradient, magnitudeGradient = computeGradientScalarField(listCoordinatesNodalElement, listTemperaturesElement, listCoordinatesNaturalAtCentroid)
             
-                coordinatesNatural = []
+            for iDimension in range(0, 3):            
                 
-                for iDimension in range(0, 3):
+                listVectorGradient[iDimension].append(vectorGradient[iDimension])
                 
-                    coordinatesNatural.append(coordinatesNodesNewWithInterface[iCube][iDimension][iNode])
-                    
-                listTemperaturesCubeCorners.append(getQuantityInsideTheElement(listTemperaturesElement, coordinatesNatural))
-                
-                for iDimension in range(0, 3):
-                
-                    listCartesianCoordinates[iDimension].append(getQuantityInsideTheElement(listCoordinatesNodalElement[iDimension], coordinatesNatural))
-        
-            listTemperaturesPointsOnInterface.append(stats.mean(listTemperaturesCubeCorners))
-            
-            coordinatesNaturalCentroid = []
-            
-            for iDimension in range(0, 3):
-            
-                listCoordinatesCartesianPointsOnInterface[iDimension].append(stats.mean(listCartesianCoordinates[iDimension]))
-                
-                coordinatesNaturalCentroid.append(stats.mean(coordinatesNodesNewWithInterface[iCube][iDimension]))
-                
-                listCoordinatesNaturalPointsOnInterface[iDimension].append(coordinatesNaturalCentroid[iDimension])
-                
-            # -------------------------------------- Compute the gradient, growth rate
-            
-            dN_dxyz = dShapeFunction_dCaterianCoords(listCoordinatesNodalElement, coordinatesNaturalCentroid)
-            
-            magnitude = 0
-            
-            for iDimension in range(0, 3):
-            
-                gradient_ = 0
-                
-                for iNode in range(0, 8):
-                
-                    gradient_ = gradient_ + dN_dxyz[iNode][iDimension]*listTemperaturesElement[iNode]
-                    
-                magnitude = magnitude + gradient_**2
-                
-                listVectorGradient[iDimension].append(gradient_)
-                
-            listMagnitudeGradient.append(math.sqrt(magnitude))
+            listMagnitudeGradient.append(math.sqrt(magnitudeGradient))
             
             listDendriteGrowthRate.append(speedLaser*abs(listVectorGradient[iDimensionScanning[directionScanning]][len(listMagnitudeGradient) - 1])/max([abs(listVectorGradient[0][len(listMagnitudeGradient) - 1]),abs(listVectorGradient[1][len(listMagnitudeGradient) - 1]),abs(listVectorGradient[2][len(listMagnitudeGradient) - 1])]))   # from: https://www.sciencedirect.com/science/article/abs/pii/S1005030216300615
             
-            listGrowthRate.append(speedLaser*abs(listVectorGradient[iDimensionScanning[directionScanning]][len(listMagnitudeGradient) - 1])/math.sqrt(magnitude))
+            listGrowthRate.append(speedLaser*abs(listVectorGradient[iDimensionScanning[directionScanning]][len(listMagnitudeGradient) - 1])/math.sqrt(magnitudeGradient))
             
             listCoolingRate.append(listMagnitudeGradient[len(listMagnitudeGradient) - 1]*listGrowthRate[len(listMagnitudeGradient) - 1])
     
@@ -218,39 +138,18 @@ def main():
     
     listIndices = np.argsort(np.array(listMagnitudeGradient))
     
-    lowestG = listMagnitudeGradient[listIndices[0]]
-    
-    moderateG = listMagnitudeGradient[listIndices[int(len(listIndices)/2)]]
-    
-    highestG = listMagnitudeGradient[listIndices[len(listIndices) - 1]]
-    
-    RforLowestG = listGrowthRate[listIndices[0]]
-    
-    RforModerateG = listGrowthRate[listIndices[int(len(listIndices)/2)]]
-    
-    RforHighestG = listGrowthRate[listIndices[len(listIndices) - 1]]
-    
-    VdforLowestG = listDendriteGrowthRate[listIndices[0]]
-    
-    VdforModerateG = listDendriteGrowthRate[listIndices[int(len(listIndices)/2)]]
-    
-    VdforHighestG = listDendriteGrowthRate[listIndices[len(listIndices) - 1]]
-    
-    
+    lowestG, moderateG, highestG = listMagnitudeGradient[listIndices[0]], listMagnitudeGradient[listIndices[int(len(listIndices)/2)]], listMagnitudeGradient[listIndices[len(listIndices) - 1]]
+        
+    RforLowestG, RforModerateG, RforHighestG = listGrowthRate[listIndices[0]], listGrowthRate[listIndices[int(len(listIndices)/2)]], listGrowthRate[listIndices[len(listIndices) - 1]]
+        
+    VdforLowestG, VdforModerateG, VdforHighestG = listDendriteGrowthRate[listIndices[0]], listDendriteGrowthRate[listIndices[int(len(listIndices)/2)]], listDendriteGrowthRate[listIndices[len(listIndices) - 1]]
+        
     # -------------------------------------- 
     listIndices = np.argsort(np.array(listGrowthRate))
     
-    lowestR = listGrowthRate[listIndices[0]]
+    lowestR, moderateR, highestR = listGrowthRate[listIndices[0]], listGrowthRate[listIndices[int(len(listIndices)/2)]], listGrowthRate[listIndices[len(listIndices) - 1]]    
     
-    moderateR = listGrowthRate[listIndices[int(len(listIndices)/2)]]
-    
-    highestR = listGrowthRate[listIndices[len(listIndices) - 1]]
-    
-    GforLowestR = listMagnitudeGradient[listIndices[0]]
-    
-    GforModerateR = listMagnitudeGradient[listIndices[int(len(listIndices)/2)]]
-    
-    GforHighestR = listMagnitudeGradient[listIndices[len(listIndices) - 1]]
+    GforLowestR, GforModerateR, GforHighestR = listMagnitudeGradient[listIndices[0]], listMagnitudeGradient[listIndices[int(len(listIndices)/2)]], listMagnitudeGradient[listIndices[len(listIndices) - 1]]    
     
     out_path = pathDir + 'G_R_forPFsimulations.out'
     
@@ -290,18 +189,15 @@ def main():
     
     # find the other in-plane coordinate for the maximum and minimum above
     
-    if directionScanning == "X" and directionMeltPoolNormal == "Y" or \
-       directionScanning == "Y" and directionMeltPoolNormal == "X":
+    if directionScanning == "X" and directionMeltPoolNormal == "Y" or directionScanning == "Y" and directionMeltPoolNormal == "X":
     
         directionTransverse = "Z"
         
-    elif directionScanning == "X" and directionMeltPoolNormal == "Z" or \
-       directionScanning == "Z" and directionMeltPoolNormal == "X":
+    elif directionScanning == "X" and directionMeltPoolNormal == "Z" or directionScanning == "Z" and directionMeltPoolNormal == "X":
     
         directionTransverse = "Y"
 
-    elif directionScanning == "Y" and directionMeltPoolNormal == "Z" or \
-       directionScanning == "Z" and directionMeltPoolNormal == "Y":
+    elif directionScanning == "Y" and directionMeltPoolNormal == "Z" or directionScanning == "Z" and directionMeltPoolNormal == "Y":
     
         directionTransverse = "X"        
     
