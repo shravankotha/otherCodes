@@ -18,6 +18,10 @@ def main():
     
     nPoints = 50
     
+    shouldSaveFigures = True
+    
+    figureFormat = '.png'
+    
     offsetTol = 0.005
     
     tolerance = 1E-6   
@@ -61,6 +65,11 @@ def main():
                                                          listTemperatures,
                                                          unitsTemperature,
                                                          temperatureLiquidus)
+                                                         
+    listElementsInMeltPool = findElementsInTheMeltPool(listConnectivity,
+                                                       listTemperatures,
+                                                       unitsTemperature,
+                                                       temperatureLiquidus)
     
     listTemperaturesPointsOnInterface, listCoordinatesCartesianPointsOnInterface, listCoordinatesNaturalPointsOnInterface, \
             listVectorGradient, listMagnitudeGradient, listDendriteGrowthRate, listGrowthRate, listCoolingRate = ([] for ii in range(8))
@@ -323,8 +332,7 @@ def main():
                                            nPoints = nPoints,                                                                                       \
                                            methodInterpolation = methodInterpolation)
                                             
-    plt.plot(coordsGridScanningDirection[0], coordsGridNormalDirection[0])
-    plt.title("Melt pool center line")
+    plt.plot(coordsGridScanningDirection[0], coordsGridNormalDirection[0])    
     plt.xlabel("Length (m)")
     plt.ylabel("Depth (m)")
     
@@ -335,8 +343,12 @@ def main():
     ylim_max = max(coordsGridNormalDirection[0]) + 6*offsetTol*(max(coordsGridNormalDirection[0])-min(coordsGridNormalDirection[0]))
 
     plt.axis([xlim_min, xlim_max, ylim_min, ylim_max])
-    
-    plt.show()
+    figNameToSave = './meltPool_2D' + str(figureFormat)
+    if shouldSaveFigures == False:
+        plt.title("Melt pool center line")
+        plt.show()
+    else:
+        plt.savefig(figNameToSave,bbox_inches = 'tight',dpi = 300)
  
     # interpolate temperatures
     coordsGridScanningDirection, coordsGridTransverseDirection, gridTemperatures = interpolate2D(                                               \
@@ -353,12 +365,16 @@ def main():
     plt.figure()
     sc = plt.scatter(coordsGridScanningDirection[0], coordsGridNormalDirection[0], c = gridTemperatures[0], cmap = "jet")
     plt.colorbar()
-    plt.title("Temperature (K) ")
     plt.xlabel("Length (m)")
     plt.ylabel("Depth (m)")
     plt.axis([xlim_min, xlim_max, ylim_min, ylim_max])
-    plt.show()
- 
+    figNameToSave = './temperature_2D' + str(figureFormat)
+    if shouldSaveFigures == False:
+        plt.title("Temperature (K) ")    
+        plt.show()
+    else:
+        plt.savefig(figNameToSave,bbox_inches = 'tight',dpi = 300)
+    
     # interpolate thermal gradient
     coordsGridScanningDirection, coordsGridTransverseDirection, gridThermalGradient = interpolate2D(                                            \
                                            listPointsXref = listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionScanning]],   \
@@ -374,12 +390,16 @@ def main():
     plt.figure()
     sc = plt.scatter(coordsGridScanningDirection[0], coordsGridNormalDirection[0], c = gridThermalGradient[0], cmap = "jet")
     plt.colorbar()
-    plt.title("Thermal gradient")
     plt.xlabel("Length (m)")
     plt.ylabel("Depth (m)")
     plt.axis([xlim_min, xlim_max, ylim_min, ylim_max])
-    plt.show()
-  
+    figNameToSave = './thermalGradient_2D' + str(figureFormat)
+    if shouldSaveFigures == False:
+        plt.title("Thermal gradient")    
+        plt.show()
+    else:
+        plt.savefig(figNameToSave,bbox_inches = 'tight',dpi = 300)
+    
     # interpolate growth rate
     coordsGridScanningDirection, coordsGridTransverseDirection, gridGrowthRate = interpolate2D(                                                 \
                                            listPointsXref = listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionScanning]],   \
@@ -395,12 +415,16 @@ def main():
     plt.figure()
     sc = plt.scatter(coordsGridScanningDirection[0], coordsGridNormalDirection[0], c = gridGrowthRate[0], cmap = "jet")
     plt.colorbar()
-    plt.title("Growth rate")
     plt.xlabel("Length (m)")
     plt.ylabel("Depth (m)")
     plt.axis([xlim_min, xlim_max, ylim_min, ylim_max])
-    plt.show()    
-
+    figNameToSave = './growthRate_2D' + str(figureFormat)
+    if shouldSaveFigures == False:
+        plt.title("Growth rate")    
+        plt.show()
+    else:
+        plt.savefig(figNameToSave,bbox_inches = 'tight',dpi = 300)
+    
     # interpolate dendrite growth rate
     coordsGridScanningDirection, coordsGridTransverseDirection, gridDendriteGrowthRate = interpolate2D(                                                 \
                                            listPointsXref = listCoordinatesCartesianPointsOnInterface[iDimensionScanning[directionScanning]],   \
@@ -416,11 +440,15 @@ def main():
     plt.figure()
     sc = plt.scatter(coordsGridScanningDirection[0], coordsGridNormalDirection[0], c = gridDendriteGrowthRate[0], cmap = "jet")
     plt.colorbar()
-    plt.title("Dendrite growth rate")
     plt.xlabel("Length (m)")
     plt.ylabel("Depth (m)")
     plt.axis([xlim_min, xlim_max, ylim_min, ylim_max])
-    plt.show()
+    figNameToSave = './dendriteGrowthRate_2D' + str(figureFormat)
+    if shouldSaveFigures == False:
+        plt.title("Dendrite growth rate")    
+        plt.show()
+    else:
+        plt.savefig(figNameToSave,bbox_inches = 'tight',dpi = 300)
     
     # interpolate cooling rate
     coordsGridScanningDirection, coordsGridTransverseDirection, gridCoolingRate = interpolate2D(                                                \
@@ -437,12 +465,16 @@ def main():
     plt.figure()
     sc = plt.scatter(coordsGridScanningDirection[0], coordsGridNormalDirection[0], c = gridCoolingRate[0], cmap = "jet")
     plt.colorbar()
-    plt.title("Cooling rate")
     plt.xlabel("Length (m)")
     plt.ylabel("Depth (m)")
     plt.axis([xlim_min, xlim_max, ylim_min, ylim_max])
-    plt.show()
-
+    figNameToSave = './coolingRate_2D' + str(figureFormat)
+    if shouldSaveFigures == False:
+        plt.title("Cooling rate")    
+        plt.show()
+    else:
+        plt.savefig(figNameToSave,bbox_inches = 'tight',dpi = 300)
+    
     # write the data along the center line to file
     
     out_path = pathDir + 'coords_depth_Temp_G_R_Vd_coolingRate_alongCenterline.out'
@@ -478,8 +510,11 @@ def main():
                           "X (m)",
                           "Y (m)",
                           "Z (m)",
+                          './meltPool_3D' + str(figureFormat),
+                          shouldSaveFigures = shouldSaveFigures,                          
                           shouldTurnOffGrid = False,
-                          shouldTurnOffAxes = False)
+                          shouldTurnOffAxes = False,
+                        )
                           
     plotMeltpoolScatter4D(listCoordinatesCartesianPointsOnInterface[0],
                           listCoordinatesCartesianPointsOnInterface[1],
@@ -490,8 +525,11 @@ def main():
                           "X (m)",
                           "Y (m)",
                           "Z (m)",
+                          './thermalGradient_3D' + str(figureFormat),
+                          shouldSaveFigures = shouldSaveFigures,
                           shouldTurnOffGrid = True,
-                          shouldTurnOffAxes = True)
+                          shouldTurnOffAxes = True
+                          )
                           
     plotMeltpoolScatter4D(listCoordinatesCartesianPointsOnInterface[0],
                           listCoordinatesCartesianPointsOnInterface[1],
@@ -502,8 +540,11 @@ def main():
                           "X (m)",
                           "Y (m)",
                           "Z (m)",
+                          './growthRate_3D' + str(figureFormat),
+                          shouldSaveFigures = shouldSaveFigures,
                           shouldTurnOffGrid = True,
-                          shouldTurnOffAxes = True)
+                          shouldTurnOffAxes = True
+                          )
 
     plotMeltpoolScatter4D(listCoordinatesCartesianPointsOnInterface[0],
                           listCoordinatesCartesianPointsOnInterface[1],
@@ -514,6 +555,8 @@ def main():
                           "X (m)",
                           "Y (m)",
                           "Z (m)",
+                          './dendriteGrowthRate_3D' + str(figureFormat),
+                          shouldSaveFigures = shouldSaveFigures,
                           shouldTurnOffGrid = True,
                           shouldTurnOffAxes = True)
                           
@@ -526,8 +569,11 @@ def main():
                           "X (m)",
                           "Y (m)",
                           "Z (m)",
+                          './coolingRate_3D' + str(figureFormat),
+                          shouldSaveFigures = shouldSaveFigures,
                           shouldTurnOffGrid = True,
-                          shouldTurnOffAxes = True)
+                          shouldTurnOffAxes = True
+                          )
 
     # scatter plot the G vs R
     #plotScatter2D(listMagnitudeGradient,listGrowthRate,"G versus R","G (K/m)","R (m/s)")
@@ -566,17 +612,21 @@ def plotScatter2D(listPointsX,
                   listPointsY,
                   labelTitle,
                   labelX,
-                  labelY):
+                  labelY,
+                  pathFigNameToSave,
+                  shouldSaveFigures):
                   
-    plt.scatter(listPointsX, listPointsY)
-    
-    plt.title(labelTitle)
+    plt.scatter(listPointsX, listPointsY)    
     
     plt.ylabel(labelX)
     
     plt.ylabel(labelY)
     
-    plt.show()
+    if shouldSaveFigures == False:
+        plt.title(labelTitle)
+        plt.show()
+    else:
+        plt.savefig(pathFigNameToSave,bbox_inches = 'tight',dpi = 300)
     
     return        
     
@@ -648,8 +698,11 @@ def plotMeltpoolScatter4D(listPointsX,
                           labelX,
                           labelY,
                           labelZ,
+                          pathFigNameToSave,
+                          shouldSaveFigures,
                           shouldTurnOffGrid,
-                          shouldTurnOffAxes):
+                          shouldTurnOffAxes
+                          ):
                           
     plt.rcParams.update({'font.family':'Times New Roman',
                          'font.weight': 'light',
@@ -663,9 +716,7 @@ def plotMeltpoolScatter4D(listPointsX,
     
     img = ax.scatter(listPointsX, listPointsY, listPointsZ, c = listPointsColor, cmap = 'jet', zorder = -1)
     
-    fig.colorbar(img)
-    
-    ax.set_title(labelTitle, fontsize = 18, fontweight = 'bold')
+    fig.colorbar(img)        
     
     ax.set_xlabel(labelX, labelpad = 20, fontweight = 'normal')
     
@@ -709,7 +760,11 @@ def plotMeltpoolScatter4D(listPointsX,
     
         plt.axis('off')
         
-    plt.show()
+    if shouldSaveFigures == False: 
+        ax.set_title(labelTitle, fontsize = 18, fontweight = 'bold')    
+        plt.show()
+    else:
+        plt.savefig(pathFigNameToSave,bbox_inches = 'tight',dpi = 300)
     
     return
 
@@ -1190,6 +1245,37 @@ def findInterfaceSolidLiquid(listConnectivity,
                 break
                 
     return listElementsWithInterface
+    
+def findElementsInTheMeltPool(listConnectivity,
+                             listTemperatures,
+                             unitsTemperature,
+                             temperatureLiquidus):
+                             
+    listElementsInMeltPool = []
+    
+    for iElement in range(0, len(listConnectivity)):
+    
+        listConnectedNodes = listConnectivity[iElement]
+        
+        isElementInsideTheMeltPool = True
+        
+        for iNode in range(0, len(listConnectedNodes)):
+        
+            idNode = listConnectedNodes[iNode] - 1
+            
+            temperature = listTemperatures[idNode]
+            
+            if temperature < temperatureLiquidus:
+            
+                isElementInsideTheMeltPool = False
+            
+                break                
+                                
+        if isElementInsideTheMeltPool == True:
+            
+            listElementsInMeltPool.append(iElement + 1)                
+                
+    return listElementsInMeltPool
                 
 def multiplyMatrices(A, B):
 
