@@ -82,11 +82,9 @@ def main():
         
         # -------------------------------------- evaluate the centroid of each cube, temperature at the centroid and gradient cooling rate etc. at the centroid
                 
-        for iCube in range(0, len(listNaturalCoodsInterfaceCubeNodes)):
-        
-            listNaturalCoodsInterfaceCubeNodes_ = listNaturalCoodsInterfaceCubeNodes[iCube]
+        for iCube in range(0, len(listNaturalCoodsInterfaceCubeNodes)):        
             
-            listCoordinatesCartesianAtCentroid, listCoordinatesNaturalAtCentroid, temperatureAtCentroidgetCentroidValuesInterfaceCube = getCentroidValuesInterfaceCube(listTemperaturesElement,listCoordinatesNodalElement,listNaturalCoodsInterfaceCubeNodes)
+            listCoordinatesCartesianAtCentroid, listCoordinatesNaturalAtCentroid, temperatureAtCentroidgetCentroidValuesInterfaceCube = getCentroidValuesInterfaceCube(listTemperaturesElement,listCoordinatesNodalElement,listNaturalCoodsInterfaceCubeNodes[iCube])
                 
             listCoordinatesCartesianPointsOnInterface[iDimension].append(listCartesianCoordinatesAtCentroid[iDimension])
             
